@@ -126,4 +126,4 @@ Do not include serial numbers or other private information.
 
 ## License
 
-[MIT](LICENSE), copyright 2026 ifree.
+[MIT](LICENSE), copyright 2026 this-self.
