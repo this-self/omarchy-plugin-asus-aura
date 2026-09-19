@@ -10,8 +10,8 @@ import qs.Commons
 // Resync re-sends saved power/effect settings while preserving brightness.
 Panel {
   id: root
-  moduleName: "ifree.kbdbacklight"
-  ipcTarget: "ifree.kbdbacklight"
+  moduleName: "this-self.asus-aura"
+  ipcTarget: "this-self.asus-aura"
   manageIpc: false
 
   readonly property PluginBarApi barApi: root.bar as PluginBarApi
@@ -264,7 +264,7 @@ Panel {
   // ---------------- IPC ----------------
 
   IpcHandler {
-    target: "ifree.kbdbacklight"
+    target: "this-self.asus-aura"
 
     function set(level: string): string { root.setLevel(Number(level)); return String(root.level) }
     function up(): string { root.adjust(1); return String(root.level) }

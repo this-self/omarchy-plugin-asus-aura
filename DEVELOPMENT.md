@@ -77,7 +77,7 @@ restore them afterward. Static validation is not a substitute for this test.
 
 ## Publication checklist
 
-- Keep the permanent ID `ifree.kbdbacklight` stable.
+- Keep the permanent ID `this-self.asus-aura` stable.
 - Keep manifest name, version, README, and command reference consistent.
 - Review the MIT license and author attribution before publication.
 - Replace `OWNER/REPOSITORY` in README installation instructions after choosing

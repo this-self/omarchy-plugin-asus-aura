@@ -4,7 +4,7 @@ An Omarchy bar widget for ASUS Aura keyboard lighting, using the `asusd`
 system D-Bus service directly. This is **not a generic keyboard-backlight
 controller** and does not use OpenRGB.
 
-Plugin ID: `ifree.kbdbacklight` (kept stable for installation and IPC).
+Plugin ID: `this-self.asus-aura` (kept stable for installation and IPC).
 
 ## Features
 
@@ -93,10 +93,10 @@ source before enabling it: Omarchy plugins run unsandboxed as your user.
   sync, without intentionally changing brightness.
 
 ```sh
-omarchy-shell ifree.kbdbacklight state
-omarchy-shell ifree.kbdbacklight set 2
-omarchy-shell ifree.kbdbacklight mode 1
-omarchy-shell ifree.kbdbacklight resync
+omarchy-shell this-self.asus-aura state
+omarchy-shell this-self.asus-aura set 2
+omarchy-shell this-self.asus-aura mode 1
+omarchy-shell this-self.asus-aura resync
 ```
 
 See [COMMANDS.md](COMMANDS.md) for the complete IPC reference and standalone
@@ -105,7 +105,7 @@ recovery instructions.
 ## Removal and persistent settings
 
 ```sh
-omarchy plugin remove ifree.kbdbacklight
+omarchy plugin remove this-self.asus-aura
 ```
 
 Removal does not uninstall `asusctl` or dependencies, stop `asusd`, or restore

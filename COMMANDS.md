@@ -6,20 +6,20 @@ The Omarchy shell must be running with this widget loaded.
 
 ## Commands available from a terminal or keybinding
 
-Prefix every command with `omarchy-shell ifree.kbdbacklight`.
+Prefix every command with `omarchy-shell this-self.asus-aura`.
 
 | Command | Example | Action |
 | --- | --- | --- |
-| `state` | `omarchy-shell ifree.kbdbacklight state` | Print the widget's cached state as JSON, including resync status. |
-| `set LEVEL` | `omarchy-shell ifree.kbdbacklight set 1` | Set brightness: 0 Off, 1 Low, 2 Medium, 3 High. |
-| `up` | `omarchy-shell ifree.kbdbacklight up` | Increase brightness one step. |
-| `down` | `omarchy-shell ifree.kbdbacklight down` | Decrease brightness one step. |
-| `mode ID` | `omarchy-shell ifree.kbdbacklight mode 0` | Select an effect using its saved colours and speed. |
-| `colour HEX` | `omarchy-shell ifree.kbdbacklight colour '#ff7f00'` | Set the currently selected colour slot (Colour 1 or Colour 2). |
-| `resync` | `omarchy-shell ifree.kbdbacklight resync` | Re-send saved lighting power/effect settings and preserve current brightness. |
-| `open` | `omarchy-shell ifree.kbdbacklight open` | Open the panel. |
-| `close` | `omarchy-shell ifree.kbdbacklight close` | Close the panel. |
-| `toggle` | `omarchy-shell ifree.kbdbacklight toggle` | Open/close the panel—not the keyboard lighting. |
+| `state` | `omarchy-shell this-self.asus-aura state` | Print the widget's cached state as JSON, including resync status. |
+| `set LEVEL` | `omarchy-shell this-self.asus-aura set 1` | Set brightness: 0 Off, 1 Low, 2 Medium, 3 High. |
+| `up` | `omarchy-shell this-self.asus-aura up` | Increase brightness one step. |
+| `down` | `omarchy-shell this-self.asus-aura down` | Decrease brightness one step. |
+| `mode ID` | `omarchy-shell this-self.asus-aura mode 0` | Select an effect using its saved colours and speed. |
+| `colour HEX` | `omarchy-shell this-self.asus-aura colour '#ff7f00'` | Set the currently selected colour slot (Colour 1 or Colour 2). |
+| `resync` | `omarchy-shell this-self.asus-aura resync` | Re-send saved lighting power/effect settings and preserve current brightness. |
+| `open` | `omarchy-shell this-self.asus-aura open` | Open the panel. |
+| `close` | `omarchy-shell this-self.asus-aura close` | Close the panel. |
+| `toggle` | `omarchy-shell this-self.asus-aura toggle` | Open/close the panel—not the keyboard lighting. |
 
 Effect IDs supported by this laptop:
 
@@ -53,7 +53,7 @@ Then pass the appropriate `/xyz/ljones/aura/...` path to the helper. The path
 observed on this laptop when this reference was written was:
 
 ```sh
-python3 ~/.config/omarchy/plugins/ifree.kbdbacklight/resync.py \
+python3 ~/.config/omarchy/plugins/this-self.asus-aura/resync.py \
   /xyz/ljones/aura/1866_3_3
 ```
 
