@@ -431,7 +431,7 @@ Panel {
     anchors.fill: parent
     bar: root.bar
     text: "󰌌"
-    tooltipText: "Keyboard backlight — " + root.levelName(root.level) + " · " + root.cur.name
+    tooltipText: "ASUS Aura Keyboard — " + root.levelName(root.level) + " · " + root.cur.name
     onPressed: function(b) {
       if (b === Qt.RightButton) { root.toggleBacklight(); root.showOsd() }
       else root.toggle()
@@ -518,7 +518,7 @@ Panel {
               spacing: Style.space(2)
 
               Text {
-                text: "Keyboard Aura"
+                text: "ASUS Aura Keyboard"
                 color: root.barApi.foreground
                 font.family: root.barApi.fontFamily
                 font.pixelSize: root.fontTokens.title

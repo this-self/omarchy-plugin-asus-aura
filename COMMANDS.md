@@ -1,4 +1,4 @@
-# Keyboard Aura commands
+# ASUS Aura Keyboard commands
 
 This is a command reference with examples, not executable command definitions.
 The live IPC commands are currently defined in `Panel.qml` inside `IpcHandler`.
@@ -66,11 +66,16 @@ disabled Awake power flag.
 ## Where the code lives
 
 - `manifest.json`: plugin identity and QML entry point.
-- `Panel.qml`: layout, widget state, IPC commands, and most ASUS service calls.
+- `Panel.qml`: layout, widget state, and IPC commands.
   - `IpcHandler`: commands exposed through `omarchy-shell`.
+  - `setLevel`, `setMode`, `writeModeData`, `writePower`: UI actions delegated
+    to the `Commands` component.
+- `Commands.qml`: ASUS command interface and external process management.
   - `busctlSet`: constructs D-Bus property-write commands.
-  - `stateProc`: reads ASUS service state.
-  - `setLevel`, `setMode`, `writeModeData`, `writePower`: hardware actions.
+  - `stateProc`: discovers the Aura device and reads ASUS service state.
+  - `setBrightness`, `setMode`, `setEffect`, `setPower`, `resync`: service
+    operations and recovery-helper invocation.
+  - `stateReceived` / `failed`: state snapshots and operation error signals.
 - `resync.py`: independent recovery implementation; power → saved effect →
   restore brightness. Reads live service settings, not the widget's cache.
 - `COMMANDS.md`: this reference.
@@ -78,18 +83,10 @@ disabled Awake power flag.
 The panel also controls speed, direction, individual RGB channels, and lighting
 power flags. These do not currently have dedicated public IPC commands.
 
-## Possible future structure
+## Interface boundaries
 
-Omarchy/Quickshell plugins need not be single-file implementations. This plugin
-could be split into:
-
-- `Panel.qml`: UI only.
-- `AuraController.qml`: state, asynchronous processes, and UI-facing actions.
-- `commands.py`: a standalone command-line backend with `--help`, shared by
-  the panel and terminal users.
-- Additional QML components for reusable sections.
-
-That refactor has not been made; the reference above describes the current
-implementation. Merely moving code to another file does not create new IPC
-commands—those still need explicit handlers if they should be callable through
-`omarchy-shell`.
+The QML backend is already separated into `Commands.qml`; it is not a
+standalone terminal program. Public IPC handlers remain in `Panel.qml`, so
+those commands require the widget to be loaded. Only `resync.py` currently
+runs independently of the shell. Adding backend methods does not automatically
+expose new IPC commands.

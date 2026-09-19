@@ -1,10 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "ifree.kbdbacklight",
-  "name": "Keyboard Backlight",
+  "name": "ASUS Aura Keyboard",
   "version": "1.0.0",
   "author": "ifree",
-  "description": "Keyboard backlight level slider",
+  "license": "MIT",
+  "description": "ASUS Aura keyboard brightness, RGB effects, and lighting power policies via asusd",
   "kinds": [
     "bar-widget"
   ],
@@ -12,8 +13,8 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "Keyboard Backlight",
-    "description": "Keyboard backlight level slider",
+    "displayName": "ASUS Aura Keyboard",
+    "description": "ASUS keyboard brightness, colours, effects, and power policies",
     "category": "System",
     "allowMultiple": false
   }
