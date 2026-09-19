@@ -455,7 +455,9 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(340))
-    contentHeight: panel.fittedContentHeight(panelColumn.implicitHeight, Style.space(620))
+    // Fit the full layout unless the screen is too small. Round up so a
+    // fractional swatch height cannot leave a subpixel scroll range.
+    contentHeight: panel.fittedContentHeight(Math.ceil(panelColumn.implicitHeight))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -473,12 +475,16 @@ Panel {
         id: scrollArea
         anchors.fill: parent
         clip: true
+        padding: 0
+        contentWidth: availableWidth
+        contentHeight: Math.ceil(panelColumn.implicitHeight)
+        readonly property bool overflowing: contentHeight > availableHeight
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-        ScrollBar.vertical.policy: panelColumn.implicitHeight > height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+        ScrollBar.vertical.policy: overflowing ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
         Binding {
           target: scrollArea.contentItem
           property: "interactive"
-          value: panelColumn.implicitHeight > scrollArea.height
+          value: scrollArea.overflowing
         }
 
         Column {
