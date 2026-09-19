@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "ifree.kbdbacklight",
+  "name": "Keyboard Backlight",
+  "version": "1.0.0",
+  "author": "ifree",
+  "description": "Keyboard backlight level slider",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Keyboard Backlight",
+    "description": "Keyboard backlight level slider",
+    "category": "System",
+    "allowMultiple": false
+  }
+}
