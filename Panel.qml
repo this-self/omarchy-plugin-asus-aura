@@ -1,6 +1,7 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
-import Quickshell
 import Quickshell.Io
 import qs.Ui
 import qs.Commons
@@ -12,6 +13,12 @@ Panel {
   moduleName: "ifree.kbdbacklight"
   ipcTarget: "ifree.kbdbacklight"
   manageIpc: false
+
+  readonly property PluginBarApi barApi: root.bar as PluginBarApi
+  // Style exposes these extensible token objects as QtObject; retain their
+  // dynamic members rather than treating them as plain QObject instances.
+  readonly property var fontTokens: Style.font
+  readonly property var spacingTokens: Style.spacing
 
   property bool available: false
   readonly property string resyncStatus: commands.resyncStatus
@@ -182,8 +189,8 @@ Panel {
   }
 
   function showOsd() {
-    if (!bar || !bar.shell) return
-    bar.shell.summon("omarchy.osd", JSON.stringify({
+    if (!root.barApi || !root.barApi.shell) return
+    root.barApi.shell.summon("omarchy.osd", JSON.stringify({
       icon: "keyboard",
       value: root.maxLevel > 0 ? Math.round(root.level * 100 / root.maxLevel) : 0
     }))
@@ -354,11 +361,11 @@ Panel {
     required property int idx
     required property bool on
 
-    fontSize: Style.font.caption
-    foreground: root.bar.foreground
-    fontFamily: root.bar.fontFamily
-    horizontalPadding: Style.spacing.sm
-    verticalPadding: Style.spacing.controlPaddingY
+    fontSize: root.fontTokens.caption
+    foreground: root.barApi.foreground
+    fontFamily: root.barApi.fontFamily
+    horizontalPadding: root.spacingTokens.sm
+    verticalPadding: root.spacingTokens.controlPaddingY
     bordered: true
     active: pill.on
     hasCursor: root.cursorActive && root.focusSection === pill.group && root.selectedIndex === pill.idx
@@ -385,9 +392,9 @@ Panel {
       Text {
         id: chanLabel
         text: chan.label
-        color: Qt.darker(root.bar.foreground, 1.4)
-        font.family: root.bar.fontFamily
-        font.pixelSize: Style.font.caption
+        color: Qt.darker(root.barApi.foreground, 1.4)
+        font.family: root.barApi.fontFamily
+        font.pixelSize: root.fontTokens.caption
         font.bold: true
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
@@ -395,9 +402,9 @@ Panel {
       Text {
         id: chanValue
         text: String(chan.amount)
-        color: Qt.darker(root.bar.foreground, 1.4)
-        font.family: root.bar.fontFamily
-        font.pixelSize: Style.font.caption
+        color: Qt.darker(root.barApi.foreground, 1.4)
+        font.family: root.barApi.fontFamily
+        font.pixelSize: root.fontTokens.caption
         anchors.right: parent.right
         anchors.rightMargin: Style.space(6)
         anchors.verticalCenter: parent.verticalCenter
@@ -489,9 +496,9 @@ Panel {
               id: heroIcon
               textFormat: Text.PlainText
               text: "󰌌"
-              color: root.bar.foreground
-              font.family: root.bar.fontFamily
-              font.pixelSize: Style.font.display
+              color: root.barApi.foreground
+              font.family: root.barApi.fontFamily
+              font.pixelSize: root.fontTokens.display
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
             }
@@ -506,9 +513,9 @@ Panel {
 
               Text {
                 text: "Keyboard Aura"
-                color: root.bar.foreground
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.title
+                color: root.barApi.foreground
+                font.family: root.barApi.fontFamily
+                font.pixelSize: root.fontTokens.title
                 font.bold: true
                 elide: Text.ElideRight
                 width: parent.width
@@ -517,9 +524,9 @@ Panel {
               Text {
                 textFormat: Text.PlainText
                 text: (root.cur.name + " · " + root.levelName(root.level)).toUpperCase()
-                color: Qt.darker(root.bar.foreground, 1.4)
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.caption
+                color: Qt.darker(root.barApi.foreground, 1.4)
+                font.family: root.barApi.fontFamily
+                font.pixelSize: root.fontTokens.caption
                 font.bold: true
                 font.letterSpacing: 1.2
                 elide: Text.ElideRight
@@ -529,7 +536,7 @@ Panel {
           }
 
           // ---------- Brightness ----------
-          PanelSeparator { foreground: root.bar.foreground }
+          PanelSeparator { foreground: root.barApi.foreground }
 
           Column {
             width: parent.width
@@ -541,8 +548,8 @@ Panel {
               PanelSectionHeader {
                 id: brHeader
                 text: "BRIGHTNESS"
-                foreground: root.bar.foreground
-                fontFamily: root.bar.fontFamily
+                foreground: root.barApi.foreground
+                fontFamily: root.barApi.fontFamily
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
               }
@@ -551,9 +558,9 @@ Panel {
                 textFormat: Text.PlainText
                 text: root.levelName(brSlider.dragging ? Math.round(brSlider.liveValue) : root.level)
                       + "  " + (brSlider.dragging ? Math.round(brSlider.liveValue) : root.level) + "/" + root.maxLevel
-                color: Qt.darker(root.bar.foreground, 1.4)
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.caption
+                color: Qt.darker(root.barApi.foreground, 1.4)
+                font.family: root.barApi.fontFamily
+                font.pixelSize: root.fontTokens.caption
                 font.bold: true
                 anchors.right: parent.right
                 anchors.rightMargin: Style.space(6)
@@ -563,9 +570,9 @@ Panel {
 
             CursorSurface {
               width: parent.width
-              height: brSlider.implicitHeight + Style.spacing.controlGap
+              height: brSlider.implicitHeight + root.spacingTokens.controlGap
               hasCursor: root.cursorActive && root.focusSection === "brightness"
-              foreground: root.bar.foreground
+              foreground: root.barApi.foreground
               outline: true
 
               PanelSlider {
@@ -615,14 +622,14 @@ Panel {
               textFormat: Text.PlainText
               text: root.resyncStatus || "Lights stuck off? Re-send settings at the current brightness."
               wrapMode: Text.Wrap
-              color: Qt.darker(root.bar.foreground, 1.4)
-              font.family: root.bar.fontFamily
-              font.pixelSize: Style.font.caption
+              color: Qt.darker(root.barApi.foreground, 1.4)
+              font.family: root.barApi.fontFamily
+              font.pixelSize: root.fontTokens.caption
             }
           }
 
           // ---------- Effect ----------
-          PanelSeparator { foreground: root.bar.foreground }
+          PanelSeparator { foreground: root.barApi.foreground }
 
           Column {
             width: parent.width
@@ -630,15 +637,15 @@ Panel {
 
             PanelSectionHeader {
               text: "EFFECT"
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
+              foreground: root.barApi.foreground
+              fontFamily: root.barApi.fontFamily
             }
 
             Grid {
               id: modeGrid
               width: parent.width
               columns: 3
-              spacing: Style.spacing.xs
+              spacing: root.spacingTokens.xs
               readonly property real cellWidth: (width - spacing * (columns - 1)) / columns
 
               Repeater {
@@ -660,7 +667,7 @@ Panel {
           // ---------- Colour ----------
           PanelSeparator {
             visible: root.cur.c1
-            foreground: root.bar.foreground
+            foreground: root.barApi.foreground
           }
 
           Column {
@@ -674,8 +681,8 @@ Panel {
               PanelSectionHeader {
                 id: colHeader
                 text: "COLOUR"
-                foreground: root.bar.foreground
-                fontFamily: root.bar.fontFamily
+                foreground: root.barApi.foreground
+                fontFamily: root.barApi.fontFamily
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
               }
@@ -683,9 +690,9 @@ Panel {
                 id: colHex
                 textFormat: Text.PlainText
                 text: root.hexOf(root.tr, root.tg, root.tb).toUpperCase()
-                color: Qt.darker(root.bar.foreground, 1.4)
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.caption
+                color: Qt.darker(root.barApi.foreground, 1.4)
+                font.family: root.barApi.fontFamily
+                font.pixelSize: root.fontTokens.caption
                 font.bold: true
                 anchors.right: parent.right
                 anchors.rightMargin: Style.space(6)
@@ -700,17 +707,17 @@ Panel {
               visible: root.cur.c2
               width: parent.width
               columns: 2
-              spacing: Style.spacing.xs
+              spacing: root.spacingTokens.xs
               readonly property real cellWidth: (width - spacing) / 2
 
               Button {
                 width: targetGrid.cellWidth
                 text: "Colour 1"
-                fontSize: Style.font.caption
-                foreground: root.bar.foreground
-                fontFamily: root.bar.fontFamily
-                horizontalPadding: Style.spacing.sm
-                verticalPadding: Style.spacing.controlPaddingY
+                fontSize: root.fontTokens.caption
+                foreground: root.barApi.foreground
+                fontFamily: root.barApi.fontFamily
+                horizontalPadding: root.spacingTokens.sm
+                verticalPadding: root.spacingTokens.controlPaddingY
                 bordered: true
                 active: root.colourTarget === 1
                 onClicked: root.colourTarget = 1
@@ -718,11 +725,11 @@ Panel {
               Button {
                 width: targetGrid.cellWidth
                 text: "Colour 2"
-                fontSize: Style.font.caption
-                foreground: root.bar.foreground
-                fontFamily: root.bar.fontFamily
-                horizontalPadding: Style.spacing.sm
-                verticalPadding: Style.spacing.controlPaddingY
+                fontSize: root.fontTokens.caption
+                foreground: root.barApi.foreground
+                fontFamily: root.barApi.fontFamily
+                horizontalPadding: root.spacingTokens.sm
+                verticalPadding: root.spacingTokens.controlPaddingY
                 bordered: true
                 active: root.colourTarget === 2
                 onClicked: root.colourTarget = 2
@@ -733,12 +740,13 @@ Panel {
               id: swatchGrid
               width: parent.width
               columns: root.presets.length
-              spacing: Style.spacing.xs
+              spacing: root.spacingTokens.xs
               readonly property real cellWidth: (width - spacing * (columns - 1)) / columns
 
               Repeater {
                 model: root.presets
                 Rectangle {
+                  id: swatch
                   required property string modelData
                   required property int index
                   width: swatchGrid.cellWidth
@@ -749,7 +757,7 @@ Panel {
                                  && root.selectedIndex === index) ? 2 : 1
                   border.color: (root.cursorActive && root.focusSection === "colour"
                                  && root.selectedIndex === index)
-                                ? root.bar.foreground : Qt.darker(root.bar.foreground, 2.0)
+                                ? root.barApi.foreground : Qt.darker(root.barApi.foreground, 2.0)
 
                   MouseArea {
                     anchors.fill: parent
@@ -757,9 +765,9 @@ Panel {
                     onEntered: {
                       root.cursorActive = true
                       root.focusSection = "colour"
-                      root.selectedIndex = parent.index
+                      root.selectedIndex = swatch.index
                     }
-                    onClicked: root.applyPreset(parent.modelData)
+                    onClicked: root.applyPreset(swatch.modelData)
                   }
                 }
               }
@@ -773,7 +781,7 @@ Panel {
           // ---------- Speed ----------
           PanelSeparator {
             visible: root.cur.spd
-            foreground: root.bar.foreground
+            foreground: root.barApi.foreground
           }
 
           Column {
@@ -783,15 +791,15 @@ Panel {
 
             PanelSectionHeader {
               text: "SPEED"
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
+              foreground: root.barApi.foreground
+              fontFamily: root.barApi.fontFamily
             }
 
             Grid {
               id: speedGrid
               width: parent.width
               columns: root.speeds.length
-              spacing: Style.spacing.xs
+              spacing: root.spacingTokens.xs
               readonly property real cellWidth: (width - spacing * (columns - 1)) / columns
 
               Repeater {
@@ -813,7 +821,7 @@ Panel {
           // ---------- Direction ----------
           PanelSeparator {
             visible: root.cur.dir
-            foreground: root.bar.foreground
+            foreground: root.barApi.foreground
           }
 
           Column {
@@ -823,15 +831,15 @@ Panel {
 
             PanelSectionHeader {
               text: "DIRECTION"
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
+              foreground: root.barApi.foreground
+              fontFamily: root.barApi.fontFamily
             }
 
             Grid {
               id: dirGrid
               width: parent.width
               columns: root.directions.length
-              spacing: Style.spacing.xs
+              spacing: root.spacingTokens.xs
               readonly property real cellWidth: (width - spacing * (columns - 1)) / columns
 
               Repeater {
@@ -851,7 +859,7 @@ Panel {
           }
 
           // ---------- Power ----------
-          PanelSeparator { foreground: root.bar.foreground }
+          PanelSeparator { foreground: root.barApi.foreground }
 
           Column {
             width: parent.width
@@ -859,15 +867,15 @@ Panel {
 
             PanelSectionHeader {
               text: "LIGHT WHEN"
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
+              foreground: root.barApi.foreground
+              fontFamily: root.barApi.fontFamily
             }
 
             Grid {
               id: powerGrid
               width: parent.width
               columns: 4
-              spacing: Style.spacing.xs
+              spacing: root.spacingTokens.xs
               readonly property real cellWidth: (width - spacing * (columns - 1)) / columns
 
               Repeater {
