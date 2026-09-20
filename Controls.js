@@ -21,6 +21,26 @@ function modeInfo(id) {
   return modes[String(id)] || {name: "Mode " + id, c1: false, c2: false, spd: false, dir: false}
 }
 
+function effectTooltip(mode, multizone) {
+  var text = "Load saved " + modeInfo(mode).name + " settings; keep brightness."
+  if (multizone === true)
+    return text + "\nZoned lighting is preserved. Replace zones to edit colours."
+  if (multizone === null)
+    return text + "\nColour, speed and direction editing is locked.\nAllow read access to the asusd config to verify zone state."
+  return text + "\nColour, speed and direction edits apply globally."
+}
+
+function powerTooltip(control) {
+  var phase = {boot: "during boot", awake: "while awake", sleep: "during sleep", shutdown: "after shutdown"}[control.field]
+  var target = control.zone === -1 ? "keyboard and lightbar" : zoneName(control.zone).toLowerCase()
+  var text = (control.on ? "Disable " : "Enable ") + target + " lighting " + phase + "."
+  if (control.zone === -1)
+    text += "\nShared setting: keyboard and lightbar change together."
+  else if (control.field === "awake")
+    text += "\nDoes not change boot or sleep settings."
+  return text
+}
+
 function colourSlot(mode, selected) { return modeInfo(mode).c2 && selected === 2 ? 2 : 1 }
 
 function zoneName(zone) {

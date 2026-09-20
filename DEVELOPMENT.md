@@ -82,6 +82,11 @@ On supported hardware, with the widget enabled:
 10. With zoned lighting already active, confirm global parameter values are
     hidden/blocked until explicit global conversion. Never label builtin
     readback as per-zone state. See [capability details](docs/CAPABILITIES.md).
+11. Hover effect, colour-slot, power, Replace zones and Resync buttons: hints
+    should explain the action without permanent explanatory paragraphs. Shared
+    Boot/Sleep hints must name both keyboard and lightbar; unsupported power
+    controls should leave no empty section. With unknown zone state, effect
+    hints must explain why parameter editing is locked.
 
 Automated tests mock all writes. `aura.py state` reads only. Runtime tests that
 change power/effects should snapshot fresh settings and restore them; do not

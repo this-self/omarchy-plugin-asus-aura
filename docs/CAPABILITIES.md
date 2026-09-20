@@ -65,7 +65,8 @@ The helper reads only the top-level `multizone_on` flag from the daemon's
 known config path, without writing it, interpreting saved enum IDs, restarting
 asusd, or sending raw packets. Unknown/unreadable state blocks ordinary global
 parameter writes. Zoned mode hides global colour/speed/direction values and
-requires an explicit **Use global effect (replace zones)** action to leave it.
+requires an explicit **Replace zones** action to leave it. Its tooltip explains
+that this applies the saved global effect and enables parameter editing.
 Saved-mode selection and Resync preserve the daemon's zone selection.
 
 This guard is checked again at write time, not merely from the panel's cache.

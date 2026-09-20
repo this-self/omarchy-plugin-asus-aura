@@ -382,6 +382,9 @@ Panel {
     verticalPadding: root.spacingTokens.controlPaddingY
     bordered: true
     active: pill.on
+    Accessible.role: Accessible.Button
+    Accessible.name: pill.text
+    Accessible.description: pill.tooltipText
     hasCursor: root.cursorActive && root.focusSection === pill.group && root.selectedIndex === pill.idx
     onHovered: function(isHovered) {
       if (!isHovered) return
@@ -445,7 +448,10 @@ Panel {
     anchors.fill: parent
     bar: root.bar
     text: "󰌌"
-    tooltipText: root.available ? "ASUS Aura Lighting — " + root.levelName(root.level) + " · " + root.cur.name : "ASUS Aura — service unavailable"
+    tooltipText: root.available
+      ? "ASUS Aura — " + root.levelName(root.level) + " · " + root.cur.name
+        + "\nScroll to adjust brightness. Right-click to turn off/restore."
+      : "ASUS Aura — service unavailable"
     onPressed: function(b) {
       if (b === Qt.RightButton) { root.toggleBacklight(); root.showOsd() }
       else root.toggle()
@@ -568,7 +574,8 @@ Panel {
               enabled: root.available && !root.writing && !commands.reading && !commands.syncPending
               iconText: "󰑓"
               iconSpinning: commands.resyncing
-              tooltipText: "Resync lighting" + (root.resyncStatus ? "\n" + root.resyncStatus : "")
+              tooltipText: "Re-send saved lighting settings; keep brightness, including Off."
+                + (root.resyncStatus ? "\n" + root.resyncStatus : "")
               Accessible.role: Accessible.Button
               Accessible.name: "Resync lighting"
               onClicked: root.resyncLighting()
@@ -684,6 +691,7 @@ Panel {
                   idx: index
                   on: root.mode === modelData
                   text: AuraControls.modeInfo(modelData).name
+                  tooltipText: AuraControls.effectTooltip(modelData, root.multizone)
                   enabled: root.available
                   onClicked: root.setMode(modelData)
                 }
@@ -691,35 +699,16 @@ Panel {
             }
           }
 
-          Column {
+          OptionPill {
+            visible: root.multizone === true
             width: parent.width
-            spacing: Style.space(6)
-
-            Text {
-              width: parent.width
-              text: root.multizone === null
-                ? "Cannot verify global/zoned state. Effect editing is disabled; daemon config must be readable."
-                : root.multizone
-                  ? "Zoned lighting is active. asusd does not expose its saved per-zone colours over D-Bus. Global edits are blocked to preserve it."
-                  : root.supportedZones.length
-                    ? "Editing the global effect. " + root.supportedZones.length + " RGB zones are advertised; reliable saved-zone editing is not available through this asusd interface."
-                    : "Editing the global effect. No separate RGB zones are advertised."
-              wrapMode: Text.Wrap
-              color: Qt.darker(root.barApi.foreground, 1.4)
-              font.family: root.barApi.fontFamily
-              font.pixelSize: root.fontTokens.caption
-            }
-
-            OptionPill {
-              visible: root.multizone === true
-              width: parent.width
-              group: "global"
-              idx: 0
-              on: false
-              enabled: root.available && !commands.modePending
-              text: "Use global effect (replace zones)"
-              onClicked: root.useGlobalEffect()
-            }
+            group: "global"
+            idx: 0
+            on: false
+            enabled: root.available && !commands.modePending
+            text: "Replace zones"
+            tooltipText: "Replace active zoned lighting with the saved global effect.\nEnables colour, speed and direction editing; keeps brightness."
+            onClicked: root.useGlobalEffect()
           }
 
           // ---------- Colour ----------
@@ -773,6 +762,7 @@ Panel {
                 on: root.effectiveColourTarget === 1
                 width: targetGrid.cellWidth
                 text: "Colour 1"
+                tooltipText: "Swatches and RGB sliders edit the first effect colour."
                 fontSize: root.fontTokens.caption
                 foreground: root.barApi.foreground
                 fontFamily: root.barApi.fontFamily
@@ -787,6 +777,7 @@ Panel {
                 on: root.effectiveColourTarget === 2
                 width: targetGrid.cellWidth
                 text: "Colour 2"
+                tooltipText: "Swatches and RGB sliders edit the second effect colour."
                 fontSize: root.fontTokens.caption
                 foreground: root.barApi.foreground
                 fontFamily: root.barApi.fontFamily
@@ -920,23 +911,13 @@ Panel {
           }
 
           // ---------- Power ----------
-          PanelSeparator { foreground: root.barApi.foreground }
-
-          Text {
-            width: parent.width
-            text: root.deviceType === 1
-              ? "Boot and Sleep are shared by keyboard and lightbar. Awake is independent. This controller ignores Shutdown."
-              : root.deviceType === 2
-                ? "This TUF controller has no independent Shutdown setting."
-                : root.powerControls.length ? "Power settings apply to each named lighting zone."
-                : "No verified power controls are available for this controller."
-            wrapMode: Text.Wrap
-            color: Qt.darker(root.barApi.foreground, 1.4)
-            font.family: root.barApi.fontFamily
-            font.pixelSize: root.fontTokens.caption
+          PanelSeparator {
+            visible: root.powerControls.length > 0
+            foreground: root.barApi.foreground
           }
 
           Column {
+            visible: root.powerControls.length > 0
             width: parent.width
             spacing: Style.space(6)
 
@@ -963,6 +944,7 @@ Panel {
                   idx: index
                   on: modelData.on
                   text: modelData.label
+                  tooltipText: AuraControls.powerTooltip(modelData)
                   enabled: root.available
                   onClicked: root.togglePower(index)
                 }

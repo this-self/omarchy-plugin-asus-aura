@@ -6,7 +6,7 @@ controller** and does not use OpenRGB.
 
 <p align="center">
   <img src="docs/images/panel.png" width="360"
-       alt="The ASUS Aura Lighting panel with a compact top-right Resync icon, brightness, effect selection, RGB colours, zone limitations, shared Boot/Sleep controls, and separate keyboard/lightbar Awake toggles.">
+       alt="The compact ASUS Aura Lighting panel with a top-right Resync icon, brightness slider, effect buttons, RGB colour controls, and shared Boot/Sleep and separate keyboard/lightbar Awake toggles.">
 </p>
 
 ## Features
@@ -24,7 +24,7 @@ Shutdown toggle. Newer controllers expose their supported per-zone policies.
 (including Off) when changing modes, colours, speeds, or directions.
 - Detection of global versus zoned lighting; global edits are blocked while
 zoned lighting is active or its state is unknown. Replacing active zones
-requires the explicit **Use global effect (replace zones)** action.
+requires the explicit **Replace zones** action.
 - Resync action that re-sends the daemon's saved power/effect settings while
 preserving current brightness, including Off.
 - Terminal/keybinding commands through `omarchy-shell`.
@@ -117,6 +117,8 @@ source before enabling it: Omarchy plugins run unsandboxed as your user.
 brightness remembered by this widget instance.
 - Use the panel to choose global effects, colours, speed, direction, and
 controller-appropriate keyboard/lightbar power flags.
+- Hover over controls for details about saved effects, shared power settings,
+and replacing zones. Explanations stay in tooltips, not in the panel layout.
 - Use the top-right **Resync** refresh icon (hover for status) to re-send the daemon's settings if lighting appears out of
 sync, without intentionally changing brightness.
 

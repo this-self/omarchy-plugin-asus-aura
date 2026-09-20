@@ -26,6 +26,25 @@ assert.equal(controls.modeInfo(1).spd, true);
 assert.equal(controls.modeInfo(3).dir, true);
 assert.equal(controls.modeInfo(999).c1, false);
 
+// Hints explain behavior without adding permanent explanatory panel text.
+assert.match(controls.effectTooltip(1, false), /saved Breathe settings; keep brightness/);
+assert.match(controls.effectTooltip(1, false), /apply globally/);
+assert.match(controls.effectTooltip(1, true), /Zoned lighting is preserved/);
+assert.match(controls.effectTooltip(1, null), /editing is locked/);
+assert.match(controls.effectTooltip(1, null), /read access/);
+assert.match(controls.powerTooltip(old[0]), /Disable keyboard and lightbar lighting during boot/);
+assert.match(controls.powerTooltip(old[0]), /change together/);
+assert.match(controls.powerTooltip(old[1]), /Enable keyboard and lightbar lighting during sleep/);
+assert.match(controls.powerTooltip(old[2]), /Disable keyboard lighting while awake/);
+assert.match(controls.powerTooltip(old[2]), /Does not change boot or sleep/);
+const modern = controls.powerControls(0, [1, 2], rows);
+assert.match(controls.powerTooltip(modern[3]), /Enable keyboard lighting after shutdown/);
+assert.doesNotMatch(controls.powerTooltip(modern[0]), /Shared setting/);
+assert.match(controls.powerTooltip(modern[4]), /Disable lightbar lighting during boot/);
+for (const control of [...old, ...modern, ...controls.powerControls(2, [1], rows)]) {
+  assert.doesNotMatch(controls.powerTooltip(control), /undefined/);
+}
+
 // Exercise the actual queue functions from Commands.qml, with fake processes.
 const qml = fs.readFileSync(path.join(root, 'Commands.qml'), 'utf8');
 const functions = qml.slice(qml.indexOf('  function fail('), qml.indexOf('\n  Process {'));
