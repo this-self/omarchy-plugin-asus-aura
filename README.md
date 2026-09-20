@@ -6,7 +6,7 @@ controller** and does not use OpenRGB.
 
 <p align="center">
   <img src="docs/images/panel.png" width="360"
-       alt="The ASUS Aura Lighting panel: brightness, effect selection, RGB colours, zone limitations, shared Boot/Sleep controls, and separate keyboard/lightbar Awake toggles.">
+       alt="The ASUS Aura Lighting panel with a compact top-right Resync icon, brightness, effect selection, RGB colours, zone limitations, shared Boot/Sleep controls, and separate keyboard/lightbar Awake toggles.">
 </p>
 
 ## Features
@@ -117,7 +117,7 @@ source before enabling it: Omarchy plugins run unsandboxed as your user.
 brightness remembered by this widget instance.
 - Use the panel to choose global effects, colours, speed, direction, and
 controller-appropriate keyboard/lightbar power flags.
-- Use **Resync** to re-send the daemon's settings if lighting appears out of
+- Use the top-right **Resync** refresh icon (hover for status) to re-send the daemon's settings if lighting appears out of
 sync, without intentionally changing brightness.
 
 ```sh

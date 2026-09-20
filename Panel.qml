@@ -200,7 +200,7 @@ Panel {
   // ---------------- Cursor model ----------------
 
   readonly property var visibleSections: {
-    var l = ["brightness", "resync", "effect"]
+    var l = ["resync", "brightness", "effect"]
     if (root.multizone === true) l.push("global")
     if (root.effectEditable) {
       if (root.cur.c2) l.push("colourTarget")
@@ -510,7 +510,7 @@ Panel {
           // ---------- Hero ----------
           Item {
             width: parent.width
-            implicitHeight: Math.max(heroIcon.implicitHeight, heroLabels.implicitHeight)
+            implicitHeight: Math.max(heroIcon.implicitHeight, heroLabels.implicitHeight, resyncButton.height)
 
             Text {
               id: heroIcon
@@ -527,7 +527,8 @@ Panel {
               id: heroLabels
               anchors.left: heroIcon.right
               anchors.leftMargin: Style.space(14)
-              anchors.right: parent.right
+              anchors.right: resyncButton.left
+              anchors.rightMargin: root.spacingTokens.sm
               anchors.verticalCenter: parent.verticalCenter
               spacing: Style.space(2)
 
@@ -552,6 +553,25 @@ Panel {
                 elide: Text.ElideRight
                 width: parent.width
               }
+            }
+
+            OptionPill {
+              id: resyncButton
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              width: Math.max(implicitWidth, implicitHeight)
+              height: width
+              group: "resync"
+              idx: 0
+              on: false
+              bordered: false
+              enabled: root.available && !root.writing && !commands.reading && !commands.syncPending
+              iconText: "󰑓"
+              iconSpinning: commands.resyncing
+              tooltipText: "Resync lighting" + (root.resyncStatus ? "\n" + root.resyncStatus : "")
+              Accessible.role: Accessible.Button
+              Accessible.name: "Resync lighting"
+              onClicked: root.resyncLighting()
             }
           }
 
@@ -631,32 +651,6 @@ Panel {
                   root.selectedIndex = -1
                 }
               }
-            }
-          }
-
-          // ---------- Recovery ----------
-          Column {
-            width: parent.width
-            spacing: Style.space(6)
-
-            OptionPill {
-              width: parent.width
-              group: "resync"
-              idx: 0
-              on: false
-              enabled: root.available && !root.writing && !commands.reading && !commands.syncPending
-              text: commands.resyncing ? "Resyncing…" : "Resync lighting"
-              onClicked: root.resyncLighting()
-            }
-
-            Text {
-              width: parent.width
-              textFormat: Text.PlainText
-              text: root.resyncStatus || "Lights stuck off? Re-send settings at the current brightness."
-              wrapMode: Text.Wrap
-              color: Qt.darker(root.barApi.foreground, 1.4)
-              font.family: root.barApi.fontFamily
-              font.pixelSize: root.fontTokens.caption
             }
           }
 
