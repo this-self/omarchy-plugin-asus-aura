@@ -1,4 +1,4 @@
-# ASUS Aura Keyboard commands
+# ASUS Aura Lighting commands
 
 This is a command reference with examples, not executable command definitions.
 The live IPC commands are currently defined in `Panel.qml` inside `IpcHandler`.
@@ -15,7 +15,12 @@ Prefix every command with `omarchy-shell this-self.asus-aura`.
 | `up` | `omarchy-shell this-self.asus-aura up` | Increase brightness one step. |
 | `down` | `omarchy-shell this-self.asus-aura down` | Decrease brightness one step. |
 | `mode ID` | `omarchy-shell this-self.asus-aura mode 0` | Select an effect using its saved colours and speed. |
-| `colour HEX` | `omarchy-shell this-self.asus-aura colour '#ff7f00'` | Set the currently selected colour slot (Colour 1 or Colour 2). |
+| `colour HEX` | `omarchy-shell this-self.asus-aura colour '#ff7f00'` | Set the applicable selected colour slot; requires global editing. |
+| `colourSlot N` | `omarchy-shell this-self.asus-aura colourSlot 2` | Select slot 1 or, for two-colour effects, 2. |
+| `speed VALUE` | `omarchy-shell this-self.asus-aura speed Low` | Set Low/Med/High when applicable. |
+| `direction VALUE` | `omarchy-shell this-self.asus-aura direction Left` | Set Right/Left/Up/Down when applicable. |
+| `power ZONE FIELD BOOL` | `omarchy-shell this-self.asus-aura power 2 awake false` | Set a supported power control; here, disable the lightbar while awake. |
+| `globalEffect` | `omarchy-shell this-self.asus-aura globalEffect` | Explicitly replace zoned lighting with the saved global effect. |
 | `resync` | `omarchy-shell this-self.asus-aura resync` | Re-send saved lighting power/effect settings and preserve current brightness. |
 | `open` | `omarchy-shell this-self.asus-aura open` | Open the panel. |
 | `close` | `omarchy-shell this-self.asus-aura close` | Close the panel. |
@@ -31,14 +36,27 @@ Effect IDs supported by this laptop:
 | 3 | Wave |
 | 10 | Pulse |
 
-Commands start asynchronous operations. A returned brightness/mode value is not
-confirmation that hardware applied it. `resync` returns `started` or
-`busy or unavailable`; call `state` afterward to inspect `resyncStatus`.
+Write commands return `queued` or a rejection message, not an assertion that
+hardware applied a value. `resync` returns `started` or `busy or unavailable`.
+Inspect `state.pending`, `state.error`, and `state.resyncStatus` afterward.
+Mode/colour/speed/direction operations preserve brightness, including Off.
 Even successful ASUS service calls cannot confirm that the physical LEDs lit.
 
-`colour` follows the panel's selected colour slot, but its current return value
-always reports Colour 1. Inspect `state` for both colours. For a predictable
-colour change, select Colour 1 in the panel first. Some effects ignore colours.
+`state.power` is an array of supported controls with `zone`, `field`, `label`,
+and `on`. On the tested controller, use zone `-1` for shared `boot`/`sleep`,
+`1` for keyboard `awake`, and `2` for lightbar `awake`. Other combinations,
+including `shutdown`, are rejected. Values must be exactly `true` or `false`.
+
+`state` includes `deviceType`, advertised RGB `zones`, `multizone` (true/false,
+or null if unknown), and `effectEditable`. Inapplicable/unavailable effect
+fields are null instead of pretending they reflect zoned hardware state.
+
+`colour` accepts exactly `#RRGGBB` and follows the applicable selected slot.
+Single-colour modes always use Colour 1; selecting Colour 2 for them is rejected.
+Parameter writes are rejected during mode transitions or when zoned state is
+active/unknown. Wait for `pending` to clear before editing a newly selected mode.
+`globalEffect` is explicit consent to replace active zones; it is not a zone
+editor. See [capability details](docs/CAPABILITIES.md).
 
 ## Recovery without the widget
 
@@ -68,25 +86,22 @@ disabled Awake power flag.
 - `manifest.json`: plugin identity and QML entry point.
 - `Panel.qml`: layout, widget state, and IPC commands.
   - `IpcHandler`: commands exposed through `omarchy-shell`.
-  - `setLevel`, `setMode`, `writeModeData`, `writePower`: UI actions delegated
-    to the `Commands` component.
-- `Commands.qml`: ASUS command interface and external process management.
-  - `busctlSet`: constructs D-Bus property-write commands.
-  - `stateProc`: discovers the Aura device and reads ASUS service state.
-  - `setBrightness`, `setMode`, `setEffect`, `setPower`, `resync`: service
-    operations and recovery-helper invocation.
-  - `stateReceived` / `failed`: state snapshots and operation error signals.
+  - `setLevel`, `setMode`, `writeColour`, `setPowerValue`: validated UI actions.
+- `Controls.js`: effect metadata, controller-aware power controls, colour slots.
+- `Commands.qml`: serialized/coalescing write queue, process management,
+  state revision checks, and visible operation errors.
+- `aura.py`: capability discovery, live-state patches, zone guards, and
+  brightness-preserving D-Bus writes. No third-party Python dependencies.
 - `resync.py`: independent recovery implementation; power → saved effect →
   restore brightness. Reads live service settings, not the widget's cache.
 - `COMMANDS.md`: this reference.
 
-The panel also controls speed, direction, individual RGB channels, and lighting
-power flags. These do not currently have dedicated public IPC commands.
+Individual RGB channel sliders use the same guarded/queued colour write path.
+Speed, direction, colour-slot and power settings also have IPC commands above.
 
 ## Interface boundaries
 
-The QML backend is already separated into `Commands.qml`; it is not a
-standalone terminal program. Public IPC handlers remain in `Panel.qml`, so
-those commands require the widget to be loaded. Only `resync.py` currently
-runs independently of the shell. Adding backend methods does not automatically
-expose new IPC commands.
+Public IPC handlers remain in `Panel.qml`, so those commands require the
+widget to be loaded. `aura.py state` can independently print a read-only daemon
+snapshot. Its JSON apply interface is internal; use the public IPC commands
+for normal operation. `resync.py` remains a standalone recovery helper.

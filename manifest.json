@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "this-self.asus-aura",
-  "name": "ASUS Aura Keyboard",
-  "version": "1.0.0",
+  "name": "ASUS Aura Lighting",
+  "version": "1.1.0",
   "author": "ifree",
   "license": "MIT",
-  "description": "ASUS Aura keyboard brightness, RGB effects, and lighting power policies via asusd",
+  "description": "ASUS Aura lighting with controller-aware keyboard and lightbar power controls via asusd",
   "kinds": [
     "bar-widget"
   ],
@@ -13,8 +13,8 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "ASUS Aura Keyboard",
-    "description": "ASUS keyboard brightness, colours, effects, and power policies",
+    "displayName": "ASUS Aura Lighting",
+    "description": "ASUS brightness, global RGB effects, and keyboard/lightbar power policies",
     "category": "System",
     "allowMultiple": false
   }

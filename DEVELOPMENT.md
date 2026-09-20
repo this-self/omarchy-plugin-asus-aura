@@ -19,7 +19,9 @@ Run checks from this directory:
 ```sh
 omarchy plugin validate .
 /usr/lib/qt6/bin/qmllint Panel.qml Commands.qml
-python3 -c 'import ast, pathlib; ast.parse(pathlib.Path("resync.py").read_text())'
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+node tests/test_controls.cjs
+python3 -B aura.py state  # read-only integration check
 git diff --check
 ```
 
@@ -66,11 +68,24 @@ On supported hardware, with the widget enabled:
 1. Open the panel; check that displayed brightness/effect match `asusd`.
 2. Check brightness slider, wheel, and right-click off/restore.
 3. Try each reported effect and its applicable colour/speed/direction controls.
-4. Check keyboard power flags without changing other lighting zones.
+4. Check controller-appropriate power controls: on 1866, shared Boot/Sleep,
+   independent Keyboard/Lightbar Awake, and no Shutdown control. Verify shared
+   writes normalize both daemon rows, while Awake preserves unrelated flags.
 5. Run `state`, `set`, `mode`, and panel open/close IPC commands from
    [COMMANDS.md](COMMANDS.md).
 6. Try Resync with brightness both On and Off; verify brightness is preserved.
-7. Verify the unavailable-service case on a suitable test system.
+7. Verify the unavailable-service case on a suitable test system: the panel
+   remains reachable and displays the read error.
+8. Select Breathe Colour 2, then Static/Pulse; confirm edits target Colour 1.
+9. Burst brightness/colour changes; check the last queued value wins. Confirm
+   mode transitions block parameter edits until readback and preserve Off.
+10. With zoned lighting already active, confirm global parameter values are
+    hidden/blocked until explicit global conversion. Never label builtin
+    readback as per-zone state. See [capability details](docs/CAPABILITIES.md).
+
+Automated tests mock all writes. `aura.py state` reads only. Runtime tests that
+change power/effects should snapshot fresh settings and restore them; do not
+use an old session snapshot over changes the user has made since.
 
 These checks change lighting settings. Record the original settings and
 restore them afterward. Static validation is not a substitute for this test.

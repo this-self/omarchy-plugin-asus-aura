@@ -5,6 +5,7 @@ import QtQuick.Controls
 import Quickshell.Io
 import qs.Ui
 import qs.Commons
+import "Controls.js" as AuraControls
 
 // ASUS Aura keyboard UI. Commands.qml owns the asusd command interface.
 // Resync re-sends saved power/effect settings while preserving brightness.
@@ -42,35 +43,26 @@ Panel {
   property string speed: "Med"
   property string direction: "Right"
 
-  // Keyboard zone (1) power flags.
-  property bool pwrBoot: true
-  property bool pwrAwake: true
-  property bool pwrSleep: false
-  property bool pwrShutdown: false
-  // Every non-keyboard power row, kept verbatim so writing keyboard flags
-  // never clobbers the lightbar.
-  property var otherPowerRows: []
+  property int deviceType: -1
+  property var supportedZones: []
+  property var supportedPowerZones: []
+  property var powerRows: []
+  // null means the daemon's zoned/global state could not be established.
+  property var multizone: null
+  readonly property bool effectEditable: root.available && !commands.modePending && root.multizone === false
+  readonly property var powerControls: AuraControls.powerControls(root.deviceType, root.supportedPowerZones, root.powerRows)
+  readonly property int effectiveColourTarget: AuraControls.colourSlot(root.mode, root.colourTarget)
 
   property real wheelAccumulator: 0
   property bool cursorActive: false
   property string focusSection: "brightness"
   property int selectedIndex: -1
 
-  // Which controls each effect actually uses. Numbers verified against this
-  // hardware by setting LedMode and reading back asusd's current_mode.
-  readonly property var modeMeta: ({
-    "0":  { name: "Static",  c1: true,  c2: false, spd: false, dir: false },
-    "1":  { name: "Breathe", c1: true,  c2: true,  spd: true,  dir: false },
-    "2":  { name: "Rainbow", c1: false, c2: false, spd: true,  dir: false },
-    "3":  { name: "Wave",    c1: false, c2: false, spd: true,  dir: true  },
-    "10": { name: "Pulse",   c1: true,  c2: false, spd: false, dir: false }
-  })
-  readonly property var fallbackMeta: ({ name: "Mode", c1: true, c2: false, spd: false, dir: false })
-  readonly property var cur: root.modeMeta[String(root.mode)] || root.fallbackMeta
+  readonly property var cur: AuraControls.modeInfo(root.mode)
+  onModeChanged: if (!AuraControls.modeInfo(root.mode).c2) root.colourTarget = 1
 
   readonly property var speeds: ["Low", "Med", "High"]
   readonly property var directions: ["Right", "Left", "Up", "Down"]
-  readonly property var powerLabels: ["Boot", "Awake", "Sleep", "Shutdown"]
   readonly property var presets: [
     "#ff0000", "#ff7f00", "#ffff00", "#00ff00", "#00ffff",
     "#007fff", "#0000ff", "#7f00ff", "#ff00ff", "#ffffff"
@@ -79,9 +71,9 @@ Panel {
   // A write is in flight (or pending) — don't let a poll stomp the knob.
   readonly property bool writing: commands.writing
 
-  readonly property int tr: root.colourTarget === 2 ? root.c2r : root.c1r
-  readonly property int tg: root.colourTarget === 2 ? root.c2g : root.c1g
-  readonly property int tb: root.colourTarget === 2 ? root.c2b : root.c1b
+  readonly property int tr: root.effectiveColourTarget === 2 ? root.c2r : root.c1r
+  readonly property int tg: root.effectiveColourTarget === 2 ? root.c2g : root.c1g
+  readonly property int tb: root.effectiveColourTarget === 2 ? root.c2b : root.c1b
 
   function hex2(n) {
     var s = Math.max(0, Math.min(255, Math.round(n))).toString(16)
@@ -108,14 +100,15 @@ Panel {
   }
 
   function setLevel(v) {
-    if (!root.available || commands.resyncing) return
+    if (!root.available || commands.resyncing || !isFinite(v)) return false
     var lvl = root.clampLevel(v)
+    if (!commands.setBrightness(lvl)) return false
     if (lvl > 0) root.restoreLevel = lvl
     root.level = lvl
-    commands.setBrightness(lvl)
+    return true
   }
 
-  function adjust(delta) { root.setLevel(root.level + delta) }
+  function adjust(delta) { return root.setLevel(root.level + delta) }
 
   function toggleBacklight() {
     root.setLevel(root.level > 0 ? 0 : (root.restoreLevel > 0 ? root.restoreLevel : 1))
@@ -124,62 +117,70 @@ Panel {
   // Writing LedMode alone makes asusd load that effect's own saved colours and
   // speed, so re-read afterwards instead of assuming ours still apply.
   function setMode(m) {
-    if (!root.available || commands.resyncing) return
+    if (!root.available || root.supportedModes.indexOf(m) < 0) return false
+    if (!commands.setMode(m)) return false
     root.mode = m
-    commands.setMode(m)
+    return true
   }
 
-  function writeModeData() {
-    if (!root.available) return
-    commands.setEffect(root.mode,
-      [root.c1r, root.c1g, root.c1b], [root.c2r, root.c2g, root.c2b],
-      root.speed, root.direction)
+  function writeColour() {
+    if (!root.effectEditable || !root.cur.c1) return false
+    return commands.setEffect(root.mode, root.effectiveColourTarget === 2 ? "colour2" : "colour1", [root.tr, root.tg, root.tb])
   }
 
   function setChannel(ch, v) {
-    if (commands.resyncing) return
+    if (!root.effectEditable || !root.cur.c1 || commands.resyncing) return
     var n = Math.max(0, Math.min(255, Math.round(v)))
-    if (root.colourTarget === 2) {
+    if (root.effectiveColourTarget === 2) {
       if (ch === "r") root.c2r = n; else if (ch === "g") root.c2g = n; else root.c2b = n
     } else {
       if (ch === "r") root.c1r = n; else if (ch === "g") root.c1g = n; else root.c1b = n
     }
-    colourDebounce.restart()
+    root.writeColour()
   }
 
   function applyPreset(hex) {
-    if (commands.resyncing) return
+    if (!root.effectEditable || !root.cur.c1 || commands.resyncing || !/^#[0-9a-fA-F]{6}$/.test(hex)) return false
     var c = Qt.color(hex)
     var r = Math.round(c.r * 255), g = Math.round(c.g * 255), b = Math.round(c.b * 255)
-    if (root.colourTarget === 2) { root.c2r = r; root.c2g = g; root.c2b = b }
+    if (root.effectiveColourTarget === 2) { root.c2r = r; root.c2g = g; root.c2b = b }
     else { root.c1r = r; root.c1g = g; root.c1b = b }
-    root.writeModeData()
+    return root.writeColour()
   }
 
-  function setSpeed(s) { if (commands.resyncing) return; root.speed = s; root.writeModeData() }
-  function setDirection(d) { if (commands.resyncing) return; root.direction = d; root.writeModeData() }
+  function setSpeed(s) {
+    if (!root.effectEditable || !root.cur.spd || root.speeds.indexOf(s) < 0) return false
+    if (!commands.setEffect(root.mode, "speed", s)) return false
+    root.speed = s
+    return true
+  }
+  function setDirection(d) {
+    if (!root.effectEditable || !root.cur.dir || root.directions.indexOf(d) < 0) return false
+    if (!commands.setEffect(root.mode, "direction", d)) return false
+    root.direction = d
+    return true
+  }
 
-  function writePower() {
-    if (!root.available || commands.resyncing) return
-    // Keyboard row first, then every other zone unchanged.
-    var rows = [[1, root.pwrBoot, root.pwrAwake, root.pwrSleep, root.pwrShutdown]]
-    for (var i = 0; i < root.otherPowerRows.length; i++) rows.push(root.otherPowerRows[i])
-
-    commands.setPower(rows)
+  function setPowerValue(zone, field, value) {
+    if (!root.available) return false
+    for (var i = 0; i < root.powerControls.length; i++) {
+      var control = root.powerControls[i]
+      if (control.zone !== zone || control.field !== field) continue
+      if (!commands.setPower(zone, field, value)) return false
+      root.powerRows = AuraControls.changePower(root.powerRows, control, value)
+      return true
+    }
+    return false
   }
 
   function togglePower(idx) {
-    if (commands.resyncing) return
-    if (idx === 0) root.pwrBoot = !root.pwrBoot
-    else if (idx === 1) root.pwrAwake = !root.pwrAwake
-    else if (idx === 2) root.pwrSleep = !root.pwrSleep
-    else root.pwrShutdown = !root.pwrShutdown
-    root.writePower()
+    if (idx < 0 || idx >= root.powerControls.length) return false
+    var control = root.powerControls[idx]
+    return root.setPowerValue(control.zone, control.field, !control.on)
   }
 
-  function powerFlag(idx) {
-    return idx === 0 ? root.pwrBoot : (idx === 1 ? root.pwrAwake
-         : (idx === 2 ? root.pwrSleep : root.pwrShutdown))
+  function useGlobalEffect() {
+    return root.available && !commands.modePending && commands.useGlobal(root.mode)
   }
 
   function levelName(lvl) {
@@ -200,20 +201,25 @@ Panel {
 
   readonly property var visibleSections: {
     var l = ["brightness", "resync", "effect"]
-    if (root.cur.c1) l.push("colour")
-    if (root.cur.spd) l.push("speed")
-    if (root.cur.dir) l.push("direction")
-    l.push("power")
+    if (root.multizone === true) l.push("global")
+    if (root.effectEditable) {
+      if (root.cur.c2) l.push("colourTarget")
+      if (root.cur.c1) l.push("colour")
+      if (root.cur.spd) l.push("speed")
+      if (root.cur.dir) l.push("direction")
+    }
+    if (root.powerControls.length) l.push("power")
     return l
   }
 
   function sectionCount(s) {
-    if (s === "resync") return 1
+    if (s === "resync" || s === "global") return 1
+    if (s === "colourTarget") return 2
     if (s === "effect") return root.supportedModes.length
     if (s === "colour") return root.presets.length
     if (s === "speed") return root.speeds.length
     if (s === "direction") return root.directions.length
-    if (s === "power") return 4
+    if (s === "power") return root.powerControls.length
     return 0  // brightness: lone slider, sentinel -1
   }
 
@@ -242,7 +248,9 @@ Panel {
     else if (s === "colour" && i >= 0 && i < root.presets.length) root.applyPreset(root.presets[i])
     else if (s === "speed" && i >= 0 && i < root.speeds.length) root.setSpeed(root.speeds[i])
     else if (s === "direction" && i >= 0 && i < root.directions.length) root.setDirection(root.directions[i])
-    else if (s === "power" && i >= 0 && i < 4) root.togglePower(i)
+    else if (s === "power") root.togglePower(i)
+    else if (s === "colourTarget" && i >= 0 && i < 2) root.colourTarget = i + 1
+    else if (s === "global") root.useGlobalEffect()
     else if (s === "brightness") root.toggleBacklight()
     else if (s === "resync") root.resyncLighting()
   }
@@ -266,21 +274,38 @@ Panel {
   IpcHandler {
     target: "this-self.asus-aura"
 
-    function set(level: string): string { root.setLevel(Number(level)); return String(root.level) }
-    function up(): string { root.adjust(1); return String(root.level) }
-    function down(): string { root.adjust(-1); return String(root.level) }
+    function set(level: string): string { return root.setLevel(Number(level)) ? "queued" : "invalid, busy or unavailable" }
+    function up(): string { return root.adjust(1) ? "queued" : "busy or unavailable" }
+    function down(): string { return root.adjust(-1) ? "queued" : "busy or unavailable" }
     function resync(): string { return root.resyncLighting() ? "started" : "busy or unavailable" }
-    function mode(m: string): string { root.setMode(Number(m)); return String(root.mode) }
-    function colour(hex: string): string { root.applyPreset(hex); return root.hexOf(root.c1r, root.c1g, root.c1b) }
+    function mode(m: string): string { return root.setMode(Number(m)) ? "queued" : "unsupported, busy or unavailable" }
+    function colour(hex: string): string { return root.applyPreset(hex) ? "queued" : "invalid, busy or global effect editing unavailable" }
+    function speed(value: string): string { return root.setSpeed(value) ? "queued" : "unsupported, busy or unavailable" }
+    function direction(value: string): string { return root.setDirection(value) ? "queued" : "unsupported, busy or unavailable" }
+    function globalEffect(): string { return root.useGlobalEffect() ? "queued" : "busy or unavailable" }
+    function colourSlot(slot: string): string {
+      var n = Number(slot)
+      if (n !== 1 && (n !== 2 || !root.cur.c2)) return "unsupported colour slot"
+      root.colourTarget = n
+      return "selected"
+    }
+    function power(zone: string, field: string, enabled: string): string {
+      if (enabled !== "true" && enabled !== "false") return "expected true or false"
+      return root.setPowerValue(Number(zone), field, enabled === "true") ? "queued" : "unsupported, busy or unavailable"
+    }
     function state(): string {
       return JSON.stringify({
         available: root.available, level: root.level, max: root.maxLevel,
         resyncing: commands.resyncing, resyncStatus: root.resyncStatus,
-        mode: root.mode, modeName: root.cur.name,
-        colour1: root.hexOf(root.c1r, root.c1g, root.c1b),
-        colour2: root.hexOf(root.c2r, root.c2g, root.c2b),
-        speed: root.speed, direction: root.direction,
-        power: { boot: root.pwrBoot, awake: root.pwrAwake, sleep: root.pwrSleep, shutdown: root.pwrShutdown }
+        mode: root.mode, modeName: root.cur.name, pending: commands.writing || commands.reading || commands.syncPending,
+        error: commands.errorMessage, deviceType: root.deviceType,
+        zones: root.supportedZones, multizone: root.multizone,
+        effectEditable: root.effectEditable,
+        colour1: root.effectEditable && root.cur.c1 ? root.hexOf(root.c1r, root.c1g, root.c1b) : null,
+        colour2: root.effectEditable && root.cur.c2 ? root.hexOf(root.c2r, root.c2g, root.c2b) : null,
+        speed: root.effectEditable && root.cur.spd ? root.speed : null,
+        direction: root.effectEditable && root.cur.dir ? root.direction : null,
+        power: root.powerControls
       })
     }
     function open(): void { root.open() }
@@ -292,8 +317,6 @@ Panel {
 
   Commands {
     id: commands
-    writePending: colourDebounce.running
-
     onStateReceived: function(st) {
       if (!st.available) { root.available = false; return }
       if (Array.isArray(st.levels) && st.levels.length > 0)
@@ -312,26 +335,17 @@ Panel {
         root.direction = String(d[5])
       }
 
-      var others = []
-      if (Array.isArray(st.power)) {
-        for (var i = 0; i < st.power.length; i++) {
-          var row = st.power[i]
-          if (Number(row[0]) === 1) {
-            root.pwrBoot = !!row[1]; root.pwrAwake = !!row[2]
-            root.pwrSleep = !!row[3]; root.pwrShutdown = !!row[4]
-          } else {
-            others.push(row)
-          }
-        }
-      }
-      root.otherPowerRows = others
+      root.deviceType = Number(st.deviceType)
+      root.supportedZones = st.zones || []
+      root.supportedPowerZones = st.powerZones || []
+      root.powerRows = st.power || []
+      root.multizone = st.multizone
       root.available = true
     }
   }
 
-  Timer { id: colourDebounce; interval: 130; repeat: false; onTriggered: root.writeModeData() }
-
-  visible: root.available
+  // Keep the panel reachable when reads fail so errors are visible.
+  visible: true
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
@@ -431,7 +445,7 @@ Panel {
     anchors.fill: parent
     bar: root.bar
     text: "󰌌"
-    tooltipText: "ASUS Aura Keyboard — " + root.levelName(root.level) + " · " + root.cur.name
+    tooltipText: root.available ? "ASUS Aura Lighting — " + root.levelName(root.level) + " · " + root.cur.name : "ASUS Aura — service unavailable"
     onPressed: function(b) {
       if (b === Qt.RightButton) { root.toggleBacklight(); root.showOsd() }
       else root.toggle()
@@ -518,7 +532,7 @@ Panel {
               spacing: Style.space(2)
 
               Text {
-                text: "ASUS Aura Keyboard"
+                text: "ASUS Aura Lighting"
                 color: root.barApi.foreground
                 font.family: root.barApi.fontFamily
                 font.pixelSize: root.fontTokens.title
@@ -529,7 +543,7 @@ Panel {
 
               Text {
                 textFormat: Text.PlainText
-                text: (root.cur.name + " · " + root.levelName(root.level)).toUpperCase()
+                text: root.available ? (root.cur.name + " · " + root.levelName(root.level)).toUpperCase() : "SERVICE UNAVAILABLE"
                 color: Qt.darker(root.barApi.foreground, 1.4)
                 font.family: root.barApi.fontFamily
                 font.pixelSize: root.fontTokens.caption
@@ -539,6 +553,17 @@ Panel {
                 width: parent.width
               }
             }
+          }
+
+          Text {
+            visible: !!commands.errorMessage
+            width: parent.width
+            text: commands.errorMessage
+            textFormat: Text.PlainText
+            wrapMode: Text.Wrap
+            color: root.barApi.foreground
+            font.family: root.barApi.fontFamily
+            font.pixelSize: root.fontTokens.caption
           }
 
           // ---------- Brightness ----------
@@ -583,6 +608,7 @@ Panel {
 
               PanelSlider {
                 id: brSlider
+                enabled: root.available
                 bar: root.bar
                 anchors.fill: parent
                 anchors.leftMargin: Style.space(6)
@@ -618,7 +644,7 @@ Panel {
               group: "resync"
               idx: 0
               on: false
-              enabled: root.available && !root.writing && !commands.reading
+              enabled: root.available && !root.writing && !commands.reading && !commands.syncPending
               text: commands.resyncing ? "Resyncing…" : "Resync lighting"
               onClicked: root.resyncLighting()
             }
@@ -663,21 +689,53 @@ Panel {
                   group: "effect"
                   idx: index
                   on: root.mode === modelData
-                  text: (root.modeMeta[String(modelData)] || root.fallbackMeta).name
+                  text: AuraControls.modeInfo(modelData).name
+                  enabled: root.available
                   onClicked: root.setMode(modelData)
                 }
               }
             }
           }
 
+          Column {
+            width: parent.width
+            spacing: Style.space(6)
+
+            Text {
+              width: parent.width
+              text: root.multizone === null
+                ? "Cannot verify global/zoned state. Effect editing is disabled; daemon config must be readable."
+                : root.multizone
+                  ? "Zoned lighting is active. asusd does not expose its saved per-zone colours over D-Bus. Global edits are blocked to preserve it."
+                  : root.supportedZones.length
+                    ? "Editing the global effect. " + root.supportedZones.length + " RGB zones are advertised; reliable saved-zone editing is not available through this asusd interface."
+                    : "Editing the global effect. No separate RGB zones are advertised."
+              wrapMode: Text.Wrap
+              color: Qt.darker(root.barApi.foreground, 1.4)
+              font.family: root.barApi.fontFamily
+              font.pixelSize: root.fontTokens.caption
+            }
+
+            OptionPill {
+              visible: root.multizone === true
+              width: parent.width
+              group: "global"
+              idx: 0
+              on: false
+              enabled: root.available && !commands.modePending
+              text: "Use global effect (replace zones)"
+              onClicked: root.useGlobalEffect()
+            }
+          }
+
           // ---------- Colour ----------
           PanelSeparator {
-            visible: root.cur.c1
+            visible: root.cur.c1 && root.effectEditable
             foreground: root.barApi.foreground
           }
 
           Column {
-            visible: root.cur.c1
+            visible: root.cur.c1 && root.effectEditable
             width: parent.width
             spacing: Style.space(10)
 
@@ -706,8 +764,7 @@ Panel {
               }
             }
 
-            // Breathe is the only two-colour effect here; pick which one the
-            // swatches and sliders below are editing.
+            // Two-colour effects edit an explicit slot.
             Grid {
               id: targetGrid
               visible: root.cur.c2
@@ -716,7 +773,10 @@ Panel {
               spacing: root.spacingTokens.xs
               readonly property real cellWidth: (width - spacing) / 2
 
-              Button {
+              OptionPill {
+                group: "colourTarget"
+                idx: 0
+                on: root.effectiveColourTarget === 1
                 width: targetGrid.cellWidth
                 text: "Colour 1"
                 fontSize: root.fontTokens.caption
@@ -725,10 +785,12 @@ Panel {
                 horizontalPadding: root.spacingTokens.sm
                 verticalPadding: root.spacingTokens.controlPaddingY
                 bordered: true
-                active: root.colourTarget === 1
                 onClicked: root.colourTarget = 1
               }
-              Button {
+              OptionPill {
+                group: "colourTarget"
+                idx: 1
+                on: root.effectiveColourTarget === 2
                 width: targetGrid.cellWidth
                 text: "Colour 2"
                 fontSize: root.fontTokens.caption
@@ -737,7 +799,6 @@ Panel {
                 horizontalPadding: root.spacingTokens.sm
                 verticalPadding: root.spacingTokens.controlPaddingY
                 bordered: true
-                active: root.colourTarget === 2
                 onClicked: root.colourTarget = 2
               }
             }
@@ -786,12 +847,12 @@ Panel {
 
           // ---------- Speed ----------
           PanelSeparator {
-            visible: root.cur.spd
+            visible: root.cur.spd && root.effectEditable
             foreground: root.barApi.foreground
           }
 
           Column {
-            visible: root.cur.spd
+            visible: root.cur.spd && root.effectEditable
             width: parent.width
             spacing: Style.space(10)
 
@@ -826,12 +887,12 @@ Panel {
 
           // ---------- Direction ----------
           PanelSeparator {
-            visible: root.cur.dir
+            visible: root.cur.dir && root.effectEditable
             foreground: root.barApi.foreground
           }
 
           Column {
-            visible: root.cur.dir
+            visible: root.cur.dir && root.effectEditable
             width: parent.width
             spacing: Style.space(10)
 
@@ -867,12 +928,26 @@ Panel {
           // ---------- Power ----------
           PanelSeparator { foreground: root.barApi.foreground }
 
+          Text {
+            width: parent.width
+            text: root.deviceType === 1
+              ? "Boot and Sleep are shared by keyboard and lightbar. Awake is independent. This controller ignores Shutdown."
+              : root.deviceType === 2
+                ? "This TUF controller has no independent Shutdown setting."
+                : root.powerControls.length ? "Power settings apply to each named lighting zone."
+                : "No verified power controls are available for this controller."
+            wrapMode: Text.Wrap
+            color: Qt.darker(root.barApi.foreground, 1.4)
+            font.family: root.barApi.fontFamily
+            font.pixelSize: root.fontTokens.caption
+          }
+
           Column {
             width: parent.width
             spacing: Style.space(6)
 
             PanelSectionHeader {
-              text: "LIGHT WHEN"
+              text: "LIGHTING POWER"
               foreground: root.barApi.foreground
               fontFamily: root.barApi.fontFamily
             }
@@ -880,20 +955,21 @@ Panel {
             Grid {
               id: powerGrid
               width: parent.width
-              columns: 4
+              columns: 2
               spacing: root.spacingTokens.xs
               readonly property real cellWidth: (width - spacing * (columns - 1)) / columns
 
               Repeater {
-                model: root.powerLabels
+                model: root.powerControls
                 OptionPill {
-                  required property string modelData
+                  required property var modelData
                   required property int index
                   width: powerGrid.cellWidth
                   group: "power"
                   idx: index
-                  on: root.powerFlag(index)
-                  text: modelData
+                  on: modelData.on
+                  text: modelData.label
+                  enabled: root.available
                   onClicked: root.togglePower(index)
                 }
               }
