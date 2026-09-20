@@ -4,9 +4,10 @@ An Omarchy bar widget for ASUS Aura keyboard lighting, using the `asusd`
 system D-Bus service directly. This is **not a generic keyboard-backlight
 controller** and does not use OpenRGB.
 
-![The ASUS Aura Keyboard panel, showing the brightness slider, resync action,
-effect selection, colour presets with RGB sliders, and lighting power
-flags.](docs/images/panel.png)
+<p align="center">
+  <img src="docs/images/panel.png" width="360"
+       alt="The ASUS Aura Keyboard panel: brightness slider, resync action, effect selection, colour presets with RGB sliders, and lighting power flags.">
+</p>
 
 ## Features
 
