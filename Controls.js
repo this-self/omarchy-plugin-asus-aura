@@ -81,3 +81,26 @@ function changePower(rows, control, value) {
     return next
   })
 }
+
+// HSV helpers for the hue/saturation sliders. h in degrees, s and v in 0..1;
+// RGB channels are 0..255 integers.
+function hsvToRgb(h, s, v) {
+  var f = function(n) {
+    var k = (n + h / 60) % 6
+    return v - v * s * Math.max(0, Math.min(k, 4 - k, 1))
+  }
+  return [Math.round(f(5) * 255), Math.round(f(3) * 255), Math.round(f(1) * 255)]
+}
+
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255
+  var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, h = 0
+  if (d) {
+    if (mx === r) h = ((g - b) / d) % 6
+    else if (mx === g) h = (b - r) / d + 2
+    else h = (r - g) / d + 4
+    h *= 60
+    if (h < 0) h += 360
+  }
+  return {h: h, s: mx ? d / mx : 0, v: mx}
+}

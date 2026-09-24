@@ -96,7 +96,8 @@ disabled Awake power flag.
   restore brightness. Reads live service settings, not the widget's cache.
 - `COMMANDS.md`: this reference.
 
-Individual RGB channel sliders use the same guarded/queued colour write path.
+Hue, saturation and individual RGB channel sliders use the same guarded/queued
+colour write path.
 Speed, direction, colour-slot and power settings also have IPC commands above.
 
 ## Interface boundaries

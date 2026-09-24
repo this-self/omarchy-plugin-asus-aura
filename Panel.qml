@@ -37,8 +37,13 @@ Panel {
   property int c2r: 0
   property int c2g: 0
   property int c2b: 0
-  // Which colour the swatches and RGB sliders edit: 1 or 2.
+  // Which colour the hue, saturation and RGB sliders edit: 1 or 2.
   property int colourTarget: 1
+  // Hue survives zero saturation, so the hue slider does not snap to red
+  // while the colour is white or grey.
+  property real colourHue: 0
+  property real colourSat: 0
+  property bool assigningColour: false
 
   property string speed: "Med"
   property string direction: "Right"
@@ -63,10 +68,8 @@ Panel {
 
   readonly property var speeds: ["Low", "Med", "High"]
   readonly property var directions: ["Right", "Left", "Up", "Down"]
-  readonly property var presets: [
-    "#ff0000", "#ff7f00", "#ffff00", "#00ff00", "#00ffff",
-    "#007fff", "#0000ff", "#7f00ff", "#ff00ff", "#ffffff"
-  ]
+  readonly property int hueStep: 10
+  readonly property int satStep: 5
 
   // A write is in flight (or pending) — don't let a poll stomp the knob.
   readonly property bool writing: commands.writing
@@ -80,6 +83,26 @@ Panel {
     return s.length < 2 ? "0" + s : s
   }
   function hexOf(r, g, b) { return "#" + root.hex2(r) + root.hex2(g) + root.hex2(b) }
+  function hsvHex(h, s, v) {
+    var c = AuraControls.hsvToRgb(h, s, v)
+    return root.hexOf(c[0], c[1], c[2])
+  }
+
+  // Re-derive hue/saturation after the RGB changes from outside the
+  // hue/saturation sliders; skip it when they already describe that RGB.
+  function syncHueSat() {
+    var t = AuraControls.rgbToHsv(root.tr, root.tg, root.tb)
+    var c = AuraControls.hsvToRgb(root.colourHue, root.colourSat, t.v)
+    if (c[0] === root.tr && c[1] === root.tg && c[2] === root.tb) return
+    root.colourSat = t.s
+    if (t.s > 0) root.colourHue = t.h
+  }
+  // Channels change one at a time (polls, slot switches), so defer to see
+  // the whole colour; a half-updated one would leave a stray hue on grey.
+  function queueHueSatSync() { if (!root.assigningColour) Qt.callLater(root.syncHueSat) }
+  onTrChanged: queueHueSatSync()
+  onTgChanged: queueHueSatSync()
+  onTbChanged: queueHueSatSync()
 
   // ---------------- Reads ----------------
 
@@ -139,12 +162,30 @@ Panel {
     root.writeColour()
   }
 
-  function applyPreset(hex) {
-    if (!root.effectEditable || !root.cur.c1 || commands.resyncing || !/^#[0-9a-fA-F]{6}$/.test(hex)) return false
-    var c = Qt.color(hex)
-    var r = Math.round(c.r * 255), g = Math.round(c.g * 255), b = Math.round(c.b * 255)
+  function assignColour(r, g, b) {
+    root.assigningColour = true
     if (root.effectiveColourTarget === 2) { root.c2r = r; root.c2g = g; root.c2b = b }
     else { root.c1r = r; root.c1g = g; root.c1b = b }
+    root.assigningColour = false
+  }
+
+  function applyHex(hex) {
+    if (!root.effectEditable || !root.cur.c1 || commands.resyncing || !/^#[0-9a-fA-F]{6}$/.test(hex)) return false
+    var c = Qt.color(hex)
+    root.assignColour(Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255))
+    root.syncHueSat()
+    return root.writeColour()
+  }
+
+  // Keep the colour's value (max channel) so the sliders change hue and
+  // saturation only; black has no hue to edit, so it starts at full value.
+  function setHueSat(h, s) {
+    if (!root.effectEditable || !root.cur.c1 || commands.resyncing || !isFinite(h) || !isFinite(s)) return false
+    var v = Math.max(root.tr, root.tg, root.tb) / 255
+    root.colourHue = Math.max(0, Math.min(359, Math.round(h)))
+    root.colourSat = Math.max(0, Math.min(1, s))
+    var c = AuraControls.hsvToRgb(root.colourHue, root.colourSat, v > 0 ? v : 1)
+    root.assignColour(c[0], c[1], c[2])
     return root.writeColour()
   }
 
@@ -204,7 +245,7 @@ Panel {
     if (root.multizone === true) l.push("global")
     if (root.effectEditable) {
       if (root.cur.c2) l.push("colourTarget")
-      if (root.cur.c1) l.push("colour")
+      if (root.cur.c1) l.push("hue", "saturation")
       if (root.cur.spd) l.push("speed")
       if (root.cur.dir) l.push("direction")
     }
@@ -216,14 +257,14 @@ Panel {
     if (s === "resync" || s === "global") return 1
     if (s === "colourTarget") return 2
     if (s === "effect") return root.supportedModes.length
-    if (s === "colour") return root.presets.length
     if (s === "speed") return root.speeds.length
     if (s === "direction") return root.directions.length
     if (s === "power") return root.powerControls.length
-    return 0  // brightness: lone slider, sentinel -1
+    return 0  // lone sliders, sentinel -1
   }
 
-  function sectionFirstIndex(s) { return s === "brightness" ? -1 : 0 }
+  function isSliderSection(s) { return s === "brightness" || s === "hue" || s === "saturation" }
+  function sectionFirstIndex(s) { return root.isSliderSection(s) ? -1 : 0 }
 
   function moveCursor(delta) {
     var secs = root.visibleSections
@@ -237,6 +278,8 @@ Panel {
 
   function moveCursorH(delta) {
     if (root.focusSection === "brightness") { root.adjust(delta); return }
+    if (root.focusSection === "hue") { root.setHueSat(root.colourHue + delta * root.hueStep, root.colourSat); return }
+    if (root.focusSection === "saturation") { root.setHueSat(root.colourHue, root.colourSat + delta * root.satStep / 100); return }
     var max = root.sectionCount(root.focusSection) - 1
     root.selectedIndex = Math.max(0, Math.min(max, root.selectedIndex + delta))
   }
@@ -245,7 +288,6 @@ Panel {
     var s = root.focusSection
     var i = root.selectedIndex
     if (s === "effect" && i >= 0 && i < root.supportedModes.length) root.setMode(root.supportedModes[i])
-    else if (s === "colour" && i >= 0 && i < root.presets.length) root.applyPreset(root.presets[i])
     else if (s === "speed" && i >= 0 && i < root.speeds.length) root.setSpeed(root.speeds[i])
     else if (s === "direction" && i >= 0 && i < root.directions.length) root.setDirection(root.directions[i])
     else if (s === "power") root.togglePower(i)
@@ -262,7 +304,7 @@ Panel {
       root.selectedIndex = root.sectionFirstIndex(secs[0])
       return
     }
-    if (root.focusSection === "brightness") { root.selectedIndex = -1; return }
+    if (root.isSliderSection(root.focusSection)) { root.selectedIndex = -1; return }
     var max = root.sectionCount(root.focusSection) - 1
     root.selectedIndex = Math.max(0, Math.min(max, root.selectedIndex))
   }
@@ -279,7 +321,7 @@ Panel {
     function down(): string { return root.adjust(-1) ? "queued" : "busy or unavailable" }
     function resync(): string { return root.resyncLighting() ? "started" : "busy or unavailable" }
     function mode(m: string): string { return root.setMode(Number(m)) ? "queued" : "unsupported, busy or unavailable" }
-    function colour(hex: string): string { return root.applyPreset(hex) ? "queued" : "invalid, busy or global effect editing unavailable" }
+    function colour(hex: string): string { return root.applyHex(hex) ? "queued" : "invalid, busy or global effect editing unavailable" }
     function speed(value: string): string { return root.setSpeed(value) ? "queued" : "unsupported, busy or unavailable" }
     function direction(value: string): string { return root.setDirection(value) ? "queued" : "unsupported, busy or unavailable" }
     function globalEffect(): string { return root.useGlobalEffect() ? "queued" : "busy or unavailable" }
@@ -441,6 +483,158 @@ Panel {
     }
   }
 
+  // Gradient-track slider for hue and saturation; a keyboard cursor row
+  // like brightness, where left/right steps the value.
+  component SpectrumSlider: Column {
+    id: spec
+    required property string section
+    required property string label
+    required property string valueText
+    required property real value
+    required property real maximum
+    required property int step
+    required property color knobColor
+    required property Gradient trackGradient
+    property real liveValue: value
+    property bool dragging: false
+    property real wheelAccumulator: 0
+    signal moved(real value)
+
+    onValueChanged: if (!spec.dragging) spec.liveValue = spec.value
+
+    width: parent ? parent.width : 0
+    spacing: Style.space(2)
+
+    readonly property real knobSize: Style.space(22)
+    readonly property real progress: Math.max(0, Math.min(1, spec.liveValue / Math.max(1, spec.maximum)))
+
+    function setLive(v) {
+      var n = Math.max(0, Math.min(spec.maximum, Math.round(v)))
+      spec.liveValue = n
+      spec.moved(n)
+    }
+
+    Item {
+      width: parent.width
+      implicitHeight: Math.max(specLabel.implicitHeight, specValue.implicitHeight)
+      Text {
+        id: specLabel
+        text: spec.label
+        color: Qt.darker(root.barApi.foreground, 1.4)
+        font.family: root.barApi.fontFamily
+        font.pixelSize: root.fontTokens.caption
+        font.bold: true
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+      }
+      Text {
+        id: specValue
+        text: spec.valueText
+        color: Qt.darker(root.barApi.foreground, 1.4)
+        font.family: root.barApi.fontFamily
+        font.pixelSize: root.fontTokens.caption
+        anchors.right: parent.right
+        anchors.rightMargin: Style.space(6)
+        anchors.verticalCenter: parent.verticalCenter
+      }
+    }
+
+    CursorSurface {
+      width: parent.width
+      height: spec.knobSize + root.spacingTokens.controlGap
+      hasCursor: root.cursorActive && root.focusSection === spec.section
+      foreground: root.barApi.foreground
+      outline: true
+      Accessible.role: Accessible.Slider
+      Accessible.name: spec.label
+      Accessible.description: spec.valueText
+
+      Item {
+        id: specTrackArea
+        anchors.fill: parent
+        anchors.leftMargin: Style.space(6)
+        anchors.rightMargin: Style.space(6)
+
+        Rectangle {
+          id: specTrack
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          height: Style.space(14)
+          radius: height / 2
+          gradient: spec.trackGradient
+        }
+        Rectangle {
+          anchors.fill: specTrack
+          radius: specTrack.radius
+          color: "transparent"
+          border.width: 1
+          border.color: Qt.rgba(0, 0, 0, 0.35)
+        }
+
+        // Outer ring in the panel background separates the knob from the
+        // track colour beneath it.
+        Rectangle {
+          width: spec.knobSize + Style.space(2)
+          height: width
+          radius: width / 2
+          color: root.barApi.background
+          anchors.centerIn: specKnob
+          scale: specKnob.scale
+        }
+        Rectangle {
+          id: specKnob
+          width: spec.knobSize
+          height: width
+          radius: width / 2
+          color: spec.knobColor
+          border.width: Style.space(3)
+          border.color: root.barApi.foreground
+          anchors.verticalCenter: specTrack.verticalCenter
+          x: (specTrackArea.width - width) * spec.progress
+          scale: specMouse.containsMouse || spec.dragging ? 1.1 : 1.0
+          Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
+        }
+
+        MouseArea {
+          id: specMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+
+          function valueFromX(x) {
+            var span = Math.max(1, width - spec.knobSize)
+            return (x - spec.knobSize / 2) / span * spec.maximum
+          }
+
+          onEntered: {
+            root.cursorActive = true
+            root.focusSection = spec.section
+            root.selectedIndex = -1
+          }
+          onPressed: function(mouse) {
+            spec.dragging = true
+            spec.setLive(valueFromX(mouse.x))
+          }
+          onPositionChanged: function(mouse) { if (spec.dragging) spec.setLive(valueFromX(mouse.x)) }
+          onReleased: {
+            spec.dragging = false
+            spec.liveValue = spec.value
+          }
+          onCanceled: {
+            spec.dragging = false
+            spec.liveValue = spec.value
+          }
+          onWheel: function(wheel) {
+            var w = Util.wheelSteps(spec.wheelAccumulator, wheel.angleDelta.y)
+            spec.wheelAccumulator = w.remainder
+            if (w.steps !== 0) spec.setLive(spec.liveValue + w.steps * spec.step)
+          }
+        }
+      }
+    }
+  }
+
   // ---------------- Bar button ----------------
 
   BarIconButton {
@@ -476,7 +670,7 @@ Panel {
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(340))
     // Fit the full layout unless the screen is too small. Round up so a
-    // fractional swatch height cannot leave a subpixel scroll range.
+    // fractional layout height cannot leave a subpixel scroll range.
     contentHeight: panel.fittedContentHeight(Math.ceil(panelColumn.implicitHeight))
 
     PanelKeyCatcher {
@@ -762,7 +956,7 @@ Panel {
                 on: root.effectiveColourTarget === 1
                 width: targetGrid.cellWidth
                 text: "Colour 1"
-                tooltipText: "Swatches and RGB sliders edit the first effect colour."
+                tooltipText: "Hue, saturation and RGB sliders edit the first effect colour."
                 fontSize: root.fontTokens.caption
                 foreground: root.barApi.foreground
                 fontFamily: root.barApi.fontFamily
@@ -777,7 +971,7 @@ Panel {
                 on: root.effectiveColourTarget === 2
                 width: targetGrid.cellWidth
                 text: "Colour 2"
-                tooltipText: "Swatches and RGB sliders edit the second effect colour."
+                tooltipText: "Hue, saturation and RGB sliders edit the second effect colour."
                 fontSize: root.fontTokens.caption
                 foreground: root.barApi.foreground
                 fontFamily: root.barApi.fontFamily
@@ -788,42 +982,44 @@ Panel {
               }
             }
 
-            Grid {
-              id: swatchGrid
-              width: parent.width
-              columns: root.presets.length
-              spacing: root.spacingTokens.xs
-              readonly property real cellWidth: (width - spacing * (columns - 1)) / columns
-
-              Repeater {
-                model: root.presets
-                Rectangle {
-                  id: swatch
-                  required property string modelData
-                  required property int index
-                  width: swatchGrid.cellWidth
-                  height: swatchGrid.cellWidth
-                  radius: Style.cornerRadius > 0 ? Style.space(4) : 0
-                  color: modelData
-                  border.width: (root.cursorActive && root.focusSection === "colour"
-                                 && root.selectedIndex === index) ? 2 : 1
-                  border.color: (root.cursorActive && root.focusSection === "colour"
-                                 && root.selectedIndex === index)
-                                ? root.barApi.foreground : Qt.darker(root.barApi.foreground, 2.0)
-
-                  MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onEntered: {
-                      root.cursorActive = true
-                      root.focusSection = "colour"
-                      root.selectedIndex = swatch.index
-                    }
-                    onClicked: root.applyPreset(swatch.modelData)
-                  }
-                }
+            SpectrumSlider {
+              section: "hue"
+              label: "HUE"
+              valueText: Math.round(liveValue) + "°"
+              maximum: 359
+              step: root.hueStep
+              value: root.colourHue
+              knobColor: root.hsvHex(liveValue, 1, 1)
+              trackGradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0 / 6; color: "#ff0000" }
+                GradientStop { position: 1 / 6; color: "#ffff00" }
+                GradientStop { position: 2 / 6; color: "#00ff00" }
+                GradientStop { position: 3 / 6; color: "#00ffff" }
+                GradientStop { position: 4 / 6; color: "#0000ff" }
+                GradientStop { position: 5 / 6; color: "#ff00ff" }
+                GradientStop { position: 1; color: "#ff0000" }
               }
+              onMoved: function(v) { root.setHueSat(v, root.colourSat) }
             }
+
+            SpectrumSlider {
+              section: "saturation"
+              label: "SATURATION"
+              valueText: Math.round(liveValue) + "%"
+              maximum: 100
+              step: root.satStep
+              value: Math.round(root.colourSat * 100)
+              knobColor: root.hsvHex(root.colourHue, liveValue / 100, 1)
+              trackGradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0; color: "#ffffff" }
+                GradientStop { position: 1; color: root.hsvHex(root.colourHue, 1, 1) }
+              }
+              onMoved: function(v) { root.setHueSat(root.colourHue, v / 100) }
+            }
+
+            Item { width: 1; height: Style.space(2) }
 
             ChannelSlider { channel: "r"; label: "RED";   amount: root.tr }
             ChannelSlider { channel: "g"; label: "GREEN"; amount: root.tg }

@@ -26,6 +26,18 @@ assert.equal(controls.modeInfo(1).spd, true);
 assert.equal(controls.modeInfo(3).dir, true);
 assert.equal(controls.modeInfo(999).c1, false);
 
+assert.deepEqual(plain(controls.hsvToRgb(0, 1, 1)), [255, 0, 0]);
+assert.deepEqual(plain(controls.hsvToRgb(120, 1, 1)), [0, 255, 0]);
+assert.deepEqual(plain(controls.hsvToRgb(240, 0.5, 1)), [128, 128, 255]);
+assert.deepEqual(plain(controls.hsvToRgb(200, 0, 0.5)), [128, 128, 128]);
+assert.deepEqual(plain(controls.rgbToHsv(255, 0, 0)), {h: 0, s: 1, v: 1});
+assert.equal(controls.rgbToHsv(0, 0, 255).h, 240);
+assert.equal(controls.rgbToHsv(0, 0, 0).s, 0, 'black has no saturation');
+for (const c of [[127, 187, 179], [255, 127, 0], [12, 34, 56]]) {
+  const t = controls.rgbToHsv(...c);
+  assert.deepEqual(plain(controls.hsvToRgb(t.h, t.s, t.v)), c, 'HSV round-trips');
+}
+
 // Hints explain behavior without adding permanent explanatory panel text.
 assert.match(controls.effectTooltip(1, false), /saved Breathe settings; keep brightness/);
 assert.match(controls.effectTooltip(1, false), /apply globally/);

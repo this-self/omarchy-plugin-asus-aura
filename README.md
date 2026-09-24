@@ -6,7 +6,7 @@ controller** and does not use OpenRGB.
 
 <p align="center">
   <img src="docs/images/panel.png" width="360"
-       alt="The compact ASUS Aura Lighting panel with a top-right Resync icon, brightness slider, effect buttons, RGB colour controls, and shared Boot/Sleep and separate keyboard/lightbar Awake toggles.">
+       alt="The compact ASUS Aura Lighting panel with a top-right Resync icon, brightness slider, effect buttons, hue/saturation and RGB colour sliders, and shared Boot/Sleep and separate keyboard/lightbar Awake toggles.">
 </p>
 
 ## Features
@@ -14,7 +14,7 @@ controller** and does not use OpenRGB.
 - Keyboard brightness slider, scroll-wheel adjustment, and on/off toggle.
 - Daemon-reported Aura effects, with controls for Static, Breathe, Rainbow,
 Wave, and Pulse.
-- Colour presets and RGB sliders; two independent colours where the effect
+- Hue and saturation spectrum sliders plus RGB sliders; two independent colours where the effect
 supports them.
 - Effect speed and direction where applicable.
 - Controller-aware lighting power controls. On the tested 1866 controller:
