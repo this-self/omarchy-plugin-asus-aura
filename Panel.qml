@@ -687,11 +687,13 @@ Panel {
 
       ScrollView {
         id: scrollArea
+        readonly property int clipGutter: root.spacingTokens.xxs
         anchors.fill: parent
+        anchors.margins: -clipGutter
         clip: true
         padding: 0
         contentWidth: availableWidth
-        contentHeight: Math.ceil(panelColumn.implicitHeight)
+        contentHeight: Math.ceil(panelColumn.implicitHeight) + clipGutter * 2
         readonly property bool overflowing: contentHeight > availableHeight
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ScrollBar.vertical.policy: overflowing ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
@@ -704,7 +706,9 @@ Panel {
         Column {
           id: panelColumn
           enabled: !commands.resyncing
-          width: scrollArea.availableWidth
+          x: scrollArea.clipGutter
+          y: scrollArea.clipGutter
+          width: scrollArea.availableWidth - scrollArea.clipGutter * 2
           spacing: Style.space(14)
 
           // ---------- Hero ----------
