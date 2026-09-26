@@ -1,5 +1,9 @@
 # Development
 
+Read [ARCHITECTURE.md](docs/ARCHITECTURE.md) for component boundaries, state
+ownership and a change-location guide. The internal JSON contract is documented
+in [BACKEND_PROTOCOL.md](docs/BACKEND_PROTOCOL.md).
+
 ## QML linting — no setup required on Omarchy
 
 `.qmllint.ini` loads Omarchy's installed module definitions directly:
@@ -14,16 +18,35 @@ standard Omarchy installation use the same paths. For a nonstandard
 installation, use `--ignore-settings --max-warnings 0` and two `-i` arguments
 pointing to that installation's `qmldir` files.
 
-Run checks from this directory:
+Run all hardware-free checks from this directory:
 
 ```sh
-omarchy plugin validate .
-/usr/lib/qt6/bin/qmllint Panel.qml Commands.qml
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-node tests/test_controls.cjs
-python3 -B aura.py state  # read-only integration check
-git diff --check
+bash tools/check.sh
 ```
+
+This validates the plugin, lints `Panel.qml` and every production QML component,
+runs Python and JS tests, runs QtTest QML tests offscreen with a fake client,
+checks the real Quickshell process adapter against a fake helper, and checks diff
+whitespace. The intentional failure warning in the process test is expected. Development requires Node.js and Qt's `qmltestrunner`
+in addition to runtime dependencies. `QMLLINT` and `QMLTESTRUNNER` can override
+the script's standard `/usr/lib/qt6/bin/` executable paths.
+
+Python tests use an injected fake bus; QML controller tests import no Quickshell
+or shell components. JS tests load complete library modules rather than scraping
+function bodies from QML. Shared fixtures validate the backend/frontend contract.
+
+On compatible hardware, a separate read-only integration check is:
+
+```sh
+python3 -B backend/aura_cli.py state
+omarchy-shell this-self.asus-aura state
+```
+
+If the shell retains cached QML after a structural refactor, first try
+`omarchy-shell shell rescanPlugins`. If it still uses old code, run
+`omarchy restart shell` **after unlocking the session**. Never bypass the shell's
+locked-session restart safeguard. The root `aura.py` compatibility response lets
+a cached pre-refactor widget keep working until that restart.
 
 `.qmllint.ini` fails on any warning. Do not put symlinks anywhere inside the
 plugin directory, even in ignored files: the validator scans the filesystem,
@@ -88,7 +111,7 @@ On supported hardware, with the widget enabled:
     controls should leave no empty section. With unknown zone state, effect
     hints must explain why parameter editing is locked.
 
-Automated tests mock all writes. `aura.py state` reads only. Runtime tests that
+Automated tests mock all writes. `backend/aura_cli.py state` reads only. Runtime tests that
 change power/effects should snapshot fresh settings and restore them; do not
 use an old session snapshot over changes the user has made since.
 

@@ -6,7 +6,8 @@ D-Bus acceptance/readback is not proof that a physical effect uses a field.
 
 ## Effect controls
 
-`Controls.js` and `aura.py` match the applicable fields in upstream
+`backend/aura_backend/capabilities.py` defines the applicable fields once,
+for both frontend descriptors and backend write validation. These match upstream
 [`aura_types.slint`](https://github.com/opengamingcollective/asusctl/blob/6.4.0/rog-control-center/ui/types/aura_types.slint).
 Only modes actually returned by `SupportedBasicModes` are offered.
 

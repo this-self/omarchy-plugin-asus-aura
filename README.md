@@ -147,8 +147,23 @@ The plugin creates no separate persistent settings file and installs no
 hooks or system configuration. Development-only QML import links, if created,
 live outside the plugin directory; see [DEVELOPMENT.md](DEVELOPMENT.md).
 
+## Code structure
+
+- `Panel.qml`: small Omarchy entry point and component wiring.
+- `qml/app/`: application state, user actions, and colour editing.
+- `qml/ui/`: popup sections, visual controls, and keyboard navigation.
+- `qml/transport/`: Python process adapter and tested write-queue transitions.
+- `qml/ipc/`: the public shell command interface.
+- `backend/aura_backend/`: hardware capabilities, validated operations, and D-Bus.
+- `tests/`: Python, JavaScript, QML, and shared contract fixtures.
+
+Start with [ARCHITECTURE.md](docs/ARCHITECTURE.md) for data flow, state ownership,
+and where to make changes. Root `aura.py` and `resync.py` are compatibility
+launchers, not additional implementations.
+
 ## Development and publishing
 
+Run hardware-free checks with `bash tools/check.sh`.
 See [DEVELOPMENT.md](DEVELOPMENT.md) for QML tooling, validation, and the
 publication checklist. Please include your laptop model, software versions,
 and any shell/service error messages when reporting compatibility problems.

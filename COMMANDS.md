@@ -1,7 +1,7 @@
 # ASUS Aura Lighting commands
 
 This is a command reference with examples, not executable command definitions.
-The live IPC commands are currently defined in `Panel.qml` inside `IpcHandler`.
+The live IPC adapter is defined in `qml/ipc/AuraIpc.qml`.
 The Omarchy shell must be running with this widget loaded.
 
 ## Commands available from a terminal or keybinding
@@ -71,9 +71,12 @@ Then pass the appropriate `/xyz/ljones/aura/...` path to the helper. The path
 observed on this laptop when this reference was written was:
 
 ```sh
-python3 ~/.config/omarchy/plugins/this-self.asus-aura/resync.py \
+python3 -B ~/.config/omarchy/plugins/this-self.asus-aura/backend/aura_cli.py resync \
   /xyz/ljones/aura/1866_3_3
 ```
+
+The previous `python3 .../resync.py DEVICE_PATH` command remains supported as a
+compatibility launcher for the same implementation.
 
 Device paths can change; use the current one rather than assuming this example
 is permanent. The helper exits 0 on success and prints errors to stderr with a
@@ -83,26 +86,22 @@ disabled Awake power flag.
 
 ## Where the code lives
 
-- `manifest.json`: plugin identity and QML entry point.
-- `Panel.qml`: layout, widget state, and IPC commands.
-  - `IpcHandler`: commands exposed through `omarchy-shell`.
-  - `setLevel`, `setMode`, `writeColour`, `setPowerValue`: validated UI actions.
-- `Controls.js`: effect metadata, controller-aware power controls, colour slots.
-- `Commands.qml`: serialized/coalescing write queue, process management,
-  state revision checks, and visible operation errors.
-- `aura.py`: capability discovery, live-state patches, zone guards, and
-  brightness-preserving D-Bus writes. No third-party Python dependencies.
-- `resync.py`: independent recovery implementation; power → saved effect →
-  restore brightness. Reads live service settings, not the widget's cache.
-- `COMMANDS.md`: this reference.
+- `Panel.qml`: wires the plugin's UI, controller, client, and IPC adapter.
+- `qml/ipc/AuraIpc.qml`: public commands and backwards-compatible state JSON.
+- `qml/app/AuraController.qml`: shared actions used by UI and IPC.
+- `qml/transport/`: process management, ordered writes, and stale-read protection.
+- `backend/aura_backend/service.py`: validated writes, live-state patches,
+  brightness preservation, and standalone recovery.
+- `backend/aura_backend/capabilities.py`: authoritative effect/power rules.
 
-Hue, saturation and individual RGB channel sliders use the same guarded/queued
-colour write path.
-Speed, direction, colour-slot and power settings also have IPC commands above.
+Hue, saturation, RGB sliders and IPC colour commands all use the same guarded
+write path. See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full component map.
 
 ## Interface boundaries
 
-Public IPC handlers remain in `Panel.qml`, so those commands require the
-widget to be loaded. `aura.py state` can independently print a read-only daemon
-snapshot. Its JSON apply interface is internal; use the public IPC commands
-for normal operation. `resync.py` remains a standalone recovery helper.
+Public IPC still requires the widget to be loaded, but not the popup to be open.
+`python3 -B backend/aura_cli.py state` independently prints a read-only normalized
+snapshot. The internal helper protocol is documented in
+[BACKEND_PROTOCOL.md](docs/BACKEND_PROTOCOL.md); use public IPC for normal operation.
+Root `aura.py` and `resync.py` remain compatibility launchers. Recovery does not
+require the shell and shares the same implementation as the panel's Resync action.

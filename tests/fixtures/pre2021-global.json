@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "path": "/xyz/ljones/aura/1866_3_3",
+  "device": {"type": 1, "rgbZones": [1, 2, 3, 4], "powerZones": [1, 2]},
+  "brightness": {"value": 0, "levels": [0, 1, 2, 3]},
+  "modeId": 1,
+  "savedEffect": {
+    "modeId": 1,
+    "colour1": {"red": 255, "green": 127, "blue": 0},
+    "colour2": {"red": 0, "green": 0, "blue": 0},
+    "speed": "Low",
+    "direction": "Right"
+  },
+  "effects": [
+    {"id": 0, "name": "Static", "colourCount": 1, "fields": ["colour1"], "speeds": [], "directions": []},
+    {"id": 1, "name": "Breathe", "colourCount": 2, "fields": ["colour1", "colour2", "speed"], "speeds": ["Low", "Med", "High"], "directions": []},
+    {"id": 2, "name": "Rainbow", "colourCount": 0, "fields": ["speed"], "speeds": ["Low", "Med", "High"], "directions": []},
+    {"id": 3, "name": "Wave", "colourCount": 0, "fields": ["speed", "direction"], "speeds": ["Low", "Med", "High"], "directions": ["Right", "Left", "Up", "Down"]},
+    {"id": 10, "name": "Pulse", "colourCount": 1, "fields": ["colour1"], "speeds": [], "directions": []}
+  ],
+  "zoneState": "global",
+  "powerControls": [
+    {"id": "-1:boot", "zone": -1, "field": "boot", "scope": "shared", "target": "keyboard and lightbar", "label": "Shared boot", "value": true},
+    {"id": "-1:sleep", "zone": -1, "field": "sleep", "scope": "shared", "target": "keyboard and lightbar", "label": "Shared sleep", "value": false},
+    {"id": "1:awake", "zone": 1, "field": "awake", "scope": "zone", "target": "keyboard", "label": "Keyboard awake", "value": true},
+    {"id": "2:awake", "zone": 2, "field": "awake", "scope": "zone", "target": "lightbar", "label": "Lightbar awake", "value": true}
+  ]
+}
